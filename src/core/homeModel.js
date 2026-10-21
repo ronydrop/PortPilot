@@ -16,7 +16,8 @@
   const BLOCKED = new Set(['conflict', 'crashed', 'error']);
   const LIVE = new Set(['running', 'starting']);
 
-  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  // Shown text goes through the app's translator (core/i18n.js) when it is installed; everywhere else it stays English.
+  const tr = (s, v) => (globalThis.PortPilotI18n ? globalThis.PortPilotI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m)));
 
   /**
    * @param {Array<{id:string,state:string}>} rows one entry per top-level app
@@ -27,11 +28,11 @@
     const blocked = list.filter((r) => BLOCKED.has(r.state)).map((r) => r.id);
     const running = list.filter((r) => LIVE.has(r.state)).map((r) => r.id);
     const ready = list.filter((r) => !BLOCKED.has(r.state) && !LIVE.has(r.state)).map((r) => r.id);
-    const parts = [`${running.length} running`, `${ready.length} ready`];
-    if (blocked.length) parts.push(`${blocked.length} blocked`);
+    const parts = [tr('{n} running', { n: running.length }), tr('{n} ready', { n: ready.length })];
+    if (blocked.length) parts.push(tr('{n} blocked', { n: blocked.length }));
     return {
       empty: list.length === 0,
-      headline: blocked.length ? `${plural(blocked.length, 'thing needs', 'things need')} you` : 'All good',
+      headline: blocked.length ? tr(blocked.length === 1 ? '{n} thing needs you' : '{n} things need you', { n: blocked.length }) : tr('All good'),
       sub: parts.join(' · '),
       tone: blocked.length ? 'bad' : 'ok',
       blocked,

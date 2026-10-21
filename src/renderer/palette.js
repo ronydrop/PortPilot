@@ -41,7 +41,7 @@
     const on = i === p.active;
     const armed = p.armed === cmd.id;
     return `<li id="palette-opt-${i}" class="palette-row${on ? ' active' : ''}${armed ? ' armed' : ''}" role="option" aria-selected="${on}" data-i="${i}">`
-      + `<span class="palette-kind">${esc(KIND_LABEL[cmd.kind] || '')}</span>`
+      + `<span class="palette-kind">${esc(t(KIND_LABEL[cmd.kind] || ''))}</span>`
       + `<span class="palette-label">${esc(cmd.label)}</span>`
       + `<span class="palette-hint">${esc(cmd.hint || '')}</span></li>`;
   }
@@ -49,7 +49,7 @@
   function foot() {
     const cmd = p.shown[p.active];
     if (cmd && p.armed === cmd.id) return cmd.confirm;
-    return p.shown.length ? 'Up and Down to move, Enter to run, Esc to close' : '';
+    return p.shown.length ? t('Up and Down to move, Enter to run, Esc to close') : '';
   }
 
   function render() {
@@ -57,7 +57,7 @@
     const input = $('palette-input');
     list.innerHTML = p.shown.length
       ? p.shown.map(rowHtml).join('')
-      : `<li class="palette-empty">${input.value.trim() ? `Nothing matches "${esc(input.value.trim())}"` : 'No commands yet'}</li>`;
+      : `<li class="palette-empty">${input.value.trim() ? t('Nothing matches "{q}"', { q: esc(input.value.trim()) }) : t('No commands yet')}</li>`;
     input.setAttribute('aria-activedescendant', p.active >= 0 ? `palette-opt-${p.active}` : '');
     const f = $('palette-foot');
     f.textContent = foot();
@@ -109,7 +109,7 @@
     if (back && back.isConnected && back.focus) back.focus();
   }
 
-  const nameOf = (id) => ((state.apps || []).find((a) => a.id === id) || {}).name || 'that app';
+  const nameOf = (id) => ((state.apps || []).find((a) => a.id === id) || {}).name || t('that app');
 
   /** The same functions the buttons call. */
   function execute(action) {
@@ -119,10 +119,10 @@
       case 'openApp': return openInBrowser(action.id);
       case 'historyApp':
         return window.PortPilotHistory.showApp(action.id).then((has) => {
-          if (!has) showToast(`No runs recorded for ${nameOf(action.id)} yet`, 'info');
+          if (!has) showToast(t('No runs recorded for {name} yet', { name: nameOf(action.id) }), 'info');
         });
       case 'killPort':
-        showToast(`Freeing :${action.port}...`, 'info');   // finding and stopping the holder can take seconds
+        showToast(t('Freeing :{port}...', { port: action.port }), 'info');   // finding and stopping the holder can take seconds
         return killPort(action.port);
       case 'startBrowser':
       case 'stopBrowser': return window.PortPilotBrowsers.toggle(action.name);
@@ -142,7 +142,7 @@
       return;
     }
     closePalette();
-    Promise.resolve(execute(cmd.action)).catch((err) => showToast(`${cmd.label} failed: ${err && err.message ? err.message : err}`, 'error'));
+    Promise.resolve(execute(cmd.action)).catch((err) => showToast(t('{command} failed: {error}', { command: cmd.label, error: err && err.message ? err.message : err }), 'error'));
   }
 
   function move(delta) {

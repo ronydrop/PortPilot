@@ -16,11 +16,11 @@
     const thumbs = window.PortPilotRowThumbs;
     const url = thumbs && thumbs.urlFor ? thumbs.urlFor(card.id) : '';
     if (url) {
-      return `<div class="now-preview"><img src="${url}" alt="Page preview of ${escapeHtml(card.name)}" decoding="sync"></div>`;
+      return `<div class="now-preview"><img src="${url}" alt="${t('Page preview of {name}', { name: escapeHtml(card.name) })}" decoding="sync"></div>`;
     }
-    const why = M.noPreviewReason(card, false, !!(thumbs && thumbs.enabled && thumbs.enabled()));
+    const why = t(M.noPreviewReason(card, false, !!(thumbs && thumbs.enabled && thumbs.enabled())));
     const initial = escapeHtml(String(card.name || '?').trim().charAt(0).toUpperCase() || '?');
-    return `<div class="now-preview now-preview-empty" role="img" aria-label="${escapeHtml(`${why} for ${card.name}`)}"><span class="now-initial" aria-hidden="true">${initial}</span><span class="now-why">${escapeHtml(why)}</span></div>`;
+    return `<div class="now-preview now-preview-empty" role="img" aria-label="${escapeHtml(t('{why} for {name}', { why, name: card.name }))}"><span class="now-initial" aria-hidden="true">${initial}</span><span class="now-why">${escapeHtml(why)}</span></div>`;
   }
 
   function cardHtml(card) {
@@ -28,20 +28,20 @@
     const claude = /^claude/.test(row.provenance || '');
     const chips = [];
     if (card.port != null) chips.push(`<span class="app-port-badge">:${card.port}</span>`);
-    if (card.branch) chips.push(`<span class="branch-chip" style="--branch-color:${escapeHtml(card.color)}" title="Branch / worktree">${icon('branch', 11)}${escapeHtml(card.branch)}</span>`);
+    if (card.branch) chips.push(`<span class="branch-chip" style="--branch-color:${escapeHtml(card.color)}" title="${t('Branch / worktree')}">${icon('branch', 11)}${escapeHtml(card.branch)}</span>`);
     if (claude) chips.push(`<span class="now-claude" title="${escapeHtml(row.provenance)}">${escapeHtml(row.provenance)}</span>`);
     if (row.uptime) chips.push(`<span class="now-uptime">${escapeHtml(row.uptime)}</span>`);
     const active = state.drawerAppId === card.id ? ' drawer-open' : '';
     return `
-      <article class="now-card${active}" data-id="${escapeHtml(card.id)}" aria-label="${escapeHtml(card.name)}, running${card.port != null ? ` on port ${card.port}` : ''}">
+      <article class="now-card${active}" data-id="${escapeHtml(card.id)}" aria-label="${card.port != null ? t('{name}, running on port {port}', { name: escapeHtml(card.name), port: card.port }) : t('{name}, running', { name: escapeHtml(card.name) })}">
         ${previewHtml(card)}
         <div class="now-body">
           <div class="now-title"><span class="now-name">${escapeHtml(card.name)}</span></div>
           <div class="now-chips">${chips.join('')}</div>
           <div class="now-actions">
-            <button class="btn btn-small btn-secondary" data-act="openInBrowser" data-id="${escapeHtml(card.id)}" title="Open in browser">${icon('browser', 12)} Open</button>
-            <button class="btn btn-small btn-secondary" data-act="openDrawer" data-id="${escapeHtml(card.id)}" title="Details">Details</button>
-            <button class="btn btn-small btn-danger" data-act="stopApp" data-id="${escapeHtml(card.id)}" data-confirm-key="stop-kill:${escapeHtml(card.id)}" title="Stop">${icon('stop', 12)} Stop</button>
+            <button class="btn btn-small btn-secondary" data-act="openInBrowser" data-id="${escapeHtml(card.id)}" title="${t('Open in browser')}">${icon('browser', 12)} ${t('Open')}</button>
+            <button class="btn btn-small btn-secondary" data-act="openDrawer" data-id="${escapeHtml(card.id)}" title="${t('Details')}">${t('Details')}</button>
+            <button class="btn btn-small btn-danger" data-act="stopApp" data-id="${escapeHtml(card.id)}" data-confirm-key="stop-kill:${escapeHtml(card.id)}" title="${t('Stop')}">${icon('stop', 12)} ${t('Stop')}</button>
           </div>
         </div>
       </article>`;
@@ -60,7 +60,7 @@
     if (layout === applied) return;
     document.body.classList.toggle('home-preview', layout === 'preview');
     const label = document.querySelector('#ports-section .section-label');
-    if (label) label.textContent = layout === 'preview' ? 'Everything listening' : 'Active Ports';
+    if (label) label.textContent = layout === 'preview' ? t('Everything listening') : t('Active Ports');
     if (applied !== null || layout === 'preview') {
       state.portsCollapsed = layout === 'preview';
       const section = document.getElementById('ports-section');
@@ -80,13 +80,13 @@
     if (!cards.length) {
       el.hidden = false;
       const msg = state.globalSearch
-        ? `No running app matches "${escapeHtml(state.globalSearch)}".`
-        : 'Nothing is running. Start an app below and its page shows up here.';
-      el.innerHTML = `<div class="now-head"><span class="now-title-text">Now running</span><span class="count-badge count-badge-small">0</span></div><div class="now-empty">${msg}</div>`;
+        ? t('No running app matches "{q}".', { q: escapeHtml(state.globalSearch) })
+        : t('Nothing is running. Start an app below and its page shows up here.');
+      el.innerHTML = `<div class="now-head"><span class="now-title-text">${t('Now running')}</span><span class="count-badge count-badge-small">0</span></div><div class="now-empty">${msg}</div>`;
       return;
     }
     el.hidden = false;
-    el.innerHTML = `<div class="now-head"><span class="now-title-text">Now running</span><span class="count-badge count-badge-small">${cards.length}</span></div><div class="now-row">${cards.map(cardHtml).join('')}</div>`;
+    el.innerHTML = `<div class="now-head"><span class="now-title-text">${t('Now running')}</span><span class="count-badge count-badge-small">${cards.length}</span></div><div class="now-row">${cards.map(cardHtml).join('')}</div>`;
     reapplyArmed(el);
   }
 

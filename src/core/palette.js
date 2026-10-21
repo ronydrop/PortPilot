@@ -13,6 +13,9 @@
   'use strict';
 
   const MAX_RESULTS = 50;
+
+  // Shown text goes through the app's translator (core/i18n.js) when it is installed; everywhere else it stays English.
+  const tr = (s, v) => (globalThis.PortPilotI18n ? globalThis.PortPilotI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m)));
   const VIEWS = [
     { view: 'apps', label: 'Go to Apps' },
     { view: 'history', label: 'Go to History' },
@@ -37,34 +40,34 @@
       const branch = a.branch ? ` (${a.branch})` : '';
       const live = running[a.id];
       if (live) {
-        out.push({ id: `stop:${a.id}`, kind: 'app', label: `Stop ${name}${branch}`, hint: (live.port || a.preferredPort) ? `:${live.port || a.preferredPort}` : 'running',
+        out.push({ id: `stop:${a.id}`, kind: 'app', label: tr('Stop {name}', { name: name + branch }), hint: (live.port || a.preferredPort) ? `:${live.port || a.preferredPort}` : tr('running'),
           keywords: `${name} ${a.branch || ''} stop kill`, action: { type: 'stopApp', id: a.id } });
-        out.push({ id: `open:${a.id}`, kind: 'app', label: `Open ${name}${branch} in browser`, hint: (live.port || a.preferredPort) ? `:${live.port || a.preferredPort}` : '',
+        out.push({ id: `open:${a.id}`, kind: 'app', label: tr('Open {name} in browser', { name: name + branch }), hint: (live.port || a.preferredPort) ? `:${live.port || a.preferredPort}` : '',
           keywords: `${name} ${a.branch || ''} open browser visit`, action: { type: 'openApp', id: a.id } });
       } else {
-        out.push({ id: `start:${a.id}`, kind: 'app', label: `Start ${name}${branch}`, hint: a.preferredPort ? `:${a.preferredPort}` : 'stopped',
+        out.push({ id: `start:${a.id}`, kind: 'app', label: tr('Start {name}', { name: name + branch }), hint: a.preferredPort ? `:${a.preferredPort}` : tr('stopped'),
           keywords: `${name} ${a.branch || ''} start run launch`, action: { type: 'startApp', id: a.id } });
       }
-      out.push({ id: `history:${a.id}`, kind: 'history', label: `History for ${name}${branch}`, hint: 'past runs',
+      out.push({ id: `history:${a.id}`, kind: 'history', label: tr('History for {name}', { name: name + branch }), hint: tr('past runs'),
         keywords: `${name} ${a.branch || ''} history runs log`, action: { type: 'historyApp', id: a.id } });
     }
     for (const p of s.ports || []) {
-      const who = p.processName ? String(p.processName) : 'a process';
-      out.push({ id: `kill:${p.port}`, kind: 'port', label: `Free port ${p.port}`, hint: p.pid ? `${who} (pid ${p.pid})` : who,
+      const who = p.processName ? String(p.processName) : tr('a process');
+      out.push({ id: `kill:${p.port}`, kind: 'port', label: tr('Free port {port}', { port: p.port }), hint: p.pid ? `${who} (pid ${p.pid})` : who,
         keywords: `${p.port} ${who} free kill port`, action: { type: 'killPort', port: p.port },
-        confirm: `Press Enter again to stop ${who}${p.pid ? ` (pid ${p.pid})` : ''} on :${p.port}` });
+        confirm: tr('Press Enter again to stop {who} on :{port}', { who: who + (p.pid ? ` (pid ${p.pid})` : ''), port: p.port }) });
     }
     for (const pr of s.profiles || []) {
       const up = pr.state === 'up';
-      out.push({ id: `${up ? 'bstop' : 'bstart'}:${pr.name}`, kind: 'browser', label: `${up ? 'Stop' : 'Start'} browser ${pr.name}`, hint: up ? 'running' : 'stopped',
+      out.push({ id: `${up ? 'bstop' : 'bstart'}:${pr.name}`, kind: 'browser', label: up ? tr('Stop browser {name}', { name: pr.name }) : tr('Start browser {name}', { name: pr.name }), hint: up ? tr('running') : tr('stopped'),
         keywords: `${pr.name} browser profile ${up ? 'stop' : 'start'}`, action: { type: up ? 'stopBrowser' : 'startBrowser', name: pr.name } });
     }
     for (const v of VIEWS) {
       if (v.view === s.view) continue;
-      out.push({ id: `view:${v.view}`, kind: 'view', label: v.label, hint: '', keywords: `${v.view} tab screen`, action: { type: 'view', view: v.view } });
+      out.push({ id: `view:${v.view}`, kind: 'view', label: tr(v.label), hint: '', keywords: `${v.view} tab screen`, action: { type: 'view', view: v.view } });
     }
-    out.push({ id: 'scan', kind: 'global', label: 'Scan ports', hint: 'Ctrl+R', keywords: 'scan refresh ports reload', action: { type: 'scan' } });
-    out.push({ id: 'add', kind: 'global', label: 'Add app', hint: 'Ctrl+N', keywords: 'add new app register', action: { type: 'addApp' } });
+    out.push({ id: 'scan', kind: 'global', label: tr('Scan ports'), hint: 'Ctrl+R', keywords: 'scan refresh ports reload', action: { type: 'scan' } });
+    out.push({ id: 'add', kind: 'global', label: tr('Add app'), hint: 'Ctrl+N', keywords: 'add new app register', action: { type: 'addApp' } });
     return out;
   }
 

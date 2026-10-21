@@ -23,9 +23,9 @@
     const thumbs = window.PortPilotRowThumbs;
     const url = thumbs && thumbs.urlFor ? thumbs.urlFor(app.id) : '';
     if (url) {
-      return `<div class="v4-insp-preview"><img src="${url}" alt="Page preview of ${escapeHtml(app.name)}" decoding="sync"></div>`;
+      return `<div class="v4-insp-preview"><img src="${url}" alt="${t('Page preview of {name}', { name: escapeHtml(app.name) })}" decoding="sync"></div>`;
     }
-    const why = live ? 'Preview not captured yet' : 'Start the app to see its page';
+    const why = live ? t('Preview not captured yet') : t('Start the app to see its page');
     return `<div class="v4-insp-preview v4-insp-preview-empty" role="img" aria-label="${escapeHtml(why)}"><span>${escapeHtml(why)}</span></div>`;
   }
 

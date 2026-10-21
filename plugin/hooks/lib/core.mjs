@@ -38,6 +38,7 @@ var require_status = __commonJS({
       if (typeof window !== "undefined") window.PortPilotStatus = api;
     })(typeof self !== "undefined" ? self : exports, function() {
       "use strict";
+      const tr = (s, v) => globalThis.PortPilotI18n ? globalThis.PortPilotI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => v && k in v ? String(v[k]) : m);
       const STATES = {
         running: { state: "running", token: "--status-running", shape: "disc", glyph: "\u25CF", ascii: "*", label: "Running" },
         stopped: { state: "stopped", token: "--status-stopped", shape: "ring", glyph: "\u25CB", ascii: "o", label: "Stopped" },
@@ -212,20 +213,20 @@ var require_status = __commonJS({
       function provenanceOf2(startedBy) {
         const s = startedBy || null;
         if (!s || s.kind === "external" || !PROVENANCE_KINDS.includes(s.kind)) {
-          return { kind: "external", word: "external", glyph: "", title: "Found running - not started by PortPilot" };
+          return { kind: "external", word: tr("external"), glyph: "", title: tr("Found running - not started by PortPilot") };
         }
-        const when = s.at ? ` at ${s.at}` : "";
+        const when = s.at ? tr(" at {time}", { time: s.at }) : "";
         if (s.kind === "human") {
-          return { kind: "human", word: "you", glyph: "", title: `Started by you from ${s.surface}${when}` };
+          return { kind: "human", word: tr("you"), glyph: "", title: tr("Started by you from {surface}", { surface: s.surface }) + when };
         }
         const short = shortSession(s.sessionId);
         const agent = agentName(s.label);
-        const session = s.sessionId ? ` (session ${s.sessionId}${s.label && !agent.other ? `, ${s.label}` : ""})` : "";
+        const session = s.sessionId ? tr(" (session {id})", { id: s.sessionId + (s.label && !agent.other ? `, ${s.label}` : "") }) : "";
         return {
           kind: "claude",
           word: short ? `${agent.word} ${short}` : agent.word,
           glyph: CLAUDE_GLYPH2,
-          title: `Started by ${agent.title}${session} via ${s.surface}${when}`
+          title: tr("Started by {agent}{session} via {surface}", { agent: agent.title, session, surface: s.surface }) + when
         };
       }
       const ROW_WORDS = { error: "Not responding", conflict: "Port blocked" };
@@ -247,15 +248,15 @@ var require_status = __commonJS({
         const s = STATES[key];
         const alive = key === "running" || key === "error";
         let reason = "";
-        if (key === "crashed" && r.exitCode != null) reason = `exit ${r.exitCode}`;
+        if (key === "crashed" && r.exitCode != null) reason = tr("exit {code}", { code: r.exitCode });
         if (key === "conflict" && r.blockedBy) reason = String(r.blockedBy);
         const uptime = alive ? formatUptime(r.uptimeSec) : "";
         const prov = alive && r.startedBy ? provenanceOf2(r.startedBy) : null;
         const provenance = prov && prov.kind !== "external" ? prov.word : "";
-        const word = ROW_WORDS[key] || s.label;
+        const word = tr(ROW_WORDS[key] || s.label);
         const head = `${s.glyph} ${word}${uptime ? " " + uptime : ""}`;
         const text = [head, reason, provenance].filter(Boolean).join(" \xB7 ");
-        const title = [word + (reason ? ` (${reason})` : ""), uptime && `up ${uptime}`, prov && provenance && prov.title].filter(Boolean).join(" - ");
+        const title = [word + (reason ? ` (${reason})` : ""), uptime && tr("up {time}", { time: uptime }), prov && provenance && prov.title].filter(Boolean).join(" - ");
         return {
           state: key,
           shape: s.shape,
@@ -318,6 +319,7 @@ var require_conflict = __commonJS({
     })(typeof self !== "undefined" ? self : exports, function(root) {
       "use strict";
       const CONFIRM_MS2 = 3e3;
+      const tr = (s, v) => globalThis.PortPilotI18n ? globalThis.PortPilotI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => v && k in v ? String(v[k]) : m);
       function statusApi() {
         if (typeof module !== "undefined" && module.exports) return require_status();
         return root && root.PortPilotStatus;
@@ -325,10 +327,10 @@ var require_conflict = __commonJS({
       function fmtAge2(seconds) {
         const s = Number(seconds);
         if (!Number.isFinite(s) || s < 0) return "";
-        if (s < 60) return "just now";
-        if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-        if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-        return `${Math.floor(s / 86400)}d ago`;
+        if (s < 60) return tr("just now");
+        if (s < 3600) return tr("{n}m ago", { n: Math.floor(s / 60) });
+        if (s < 86400) return tr("{n}h ago", { n: Math.floor(s / 3600) });
+        return tr("{n}d ago", { n: Math.floor(s / 86400) });
       }
       function describeConflict2(c) {
         const o = c || {};
@@ -336,7 +338,7 @@ var require_conflict = __commonJS({
         const holder = o.holder || {};
         const holderApp = o.holderApp && o.holderApp.name ? o.holderApp : null;
         const kind = holderApp ? "managed" : "unmanaged";
-        const proc = holder.processName || "an unknown process";
+        const proc = holder.processName || tr("an unknown process");
         const holderName = holderApp ? holderApp.name : proc;
         const S = statusApi();
         const prov = o.holderStartedBy && S ? S.provenanceOf(o.holderStartedBy) : null;
@@ -345,33 +347,33 @@ var require_conflict = __commonJS({
         if (holderApp) details.push(proc);
         if (holder.pid != null) details.push(`PID ${holder.pid}`);
         const age = fmtAge2(holder.uptime);
-        if (age) details.push(`started ${age}`);
-        if (known) details.push(`started by ${prov.word}`);
-        else if (!holderApp) details.push("not managed");
-        const sentence = `:${port} is held by ${holderName}` + (details.length ? ` (${details.join(", ")})` : "");
+        if (age) details.push(tr("started {age}", { age }));
+        if (known) details.push(tr("started by {who}", { who: prov.word }));
+        else if (!holderApp) details.push(tr("not managed"));
+        const sentence = tr(":{port} is held by {holder}", { port, holder: holderName }) + (details.length ? ` (${details.join(", ")})` : "");
         const title = known ? prov.title : "";
         const freePort = Number(o.freePort) || null;
-        const appName = o.app && o.app.name ? o.app.name : "the app";
+        const appName = o.app && o.app.name ? o.app.name : tr("the app");
         const actions = [
           {
             id: "useFreePort",
-            label: freePort ? `Use :${freePort} instead` : "Use next free port",
-            title: `Start ${appName} on ${freePort ? `:${freePort}` : "the next free port"} for this run. The saved port stays :${port}.`,
+            label: freePort ? tr("Use :{port} instead", { port: freePort }) : tr("Use next free port"),
+            title: tr("Start {app} on {target} for this run. The saved port stays :{port}.", { app: appName, target: freePort ? `:${freePort}` : tr("the next free port"), port }),
             destructive: false,
             recommended: true
           },
           {
             id: "killAndStart",
-            label: holderApp ? `Stop ${holderApp.name} & start` : "Kill & start",
-            title: `End ${holderName}${holder.pid != null ? ` (PID ${holder.pid})` : ""}, then start ${appName} on :${port}`,
-            confirmLabel: holderApp ? "Confirm stop?" : "Confirm kill?",
+            label: holderApp ? tr("Stop {name} & start", { name: holderApp.name }) : tr("Kill & start"),
+            title: tr("End {holder}, then start {app} on :{port}", { holder: holderName + (holder.pid != null ? ` (PID ${holder.pid})` : ""), app: appName, port }),
+            confirmLabel: holderApp ? tr("Confirm stop?") : tr("Confirm kill?"),
             destructive: true,
             recommended: false
           },
           {
             id: "showProcess",
-            label: "Show process",
-            title: `Find :${port} in the Ports list`,
+            label: tr("Show process"),
+            title: tr("Find :{port} in the Ports list", { port }),
             destructive: false,
             recommended: false
           }
@@ -390,9 +392,9 @@ var require_conflict = __commonJS({
         if (fresh.length === 1) {
           const c = fresh[0];
           const h = c.occupiedBy || {};
-          message = `Port ${c.port} blocked for ${c.appName} by ${h.processName || "Unknown"}` + (h.pid != null ? ` (PID ${h.pid})` : "");
+          message = tr("Port {port} blocked for {app} by {holder}", { port: c.port, app: c.appName, holder: h.processName || tr("Unknown") }) + (h.pid != null ? ` (PID ${h.pid})` : "");
         } else if (fresh.length > 1) {
-          message = `${fresh.length} port conflicts - see the marked rows`;
+          message = tr("{n} port conflicts - see the marked rows", { n: fresh.length });
         }
         return { keys, message };
       }

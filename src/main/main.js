@@ -2,6 +2,10 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, nativeTheme, Notif
 const path = require('path');
 const { setupIpcHandlers } = require('./ipcHandlers');
 const { ConfigStore } = require('./configStore');
+const i18n = require('../core/i18n');
+
+// Shared core modules (crashAlert, status...) translate through this hook when they run in main.
+globalThis.PortPilotI18n = i18n;
 
 let mainWindow = null;
 let tray = null;
@@ -87,16 +91,16 @@ function createWindow(configStore) {
 /** Build tray context menu - called on create and when running apps change */
 function buildTrayMenu(runningApps = []) {
   const template = [
-    { label: 'Show PortPilot', click: () => mainWindow?.show() },
-    { label: 'Scan Ports', click: () => mainWindow?.webContents.send('trigger-scan') },
+    { label: i18n.t('Show PortPilot'), click: () => mainWindow?.show() },
+    { label: i18n.t('Scan Ports'), click: () => mainWindow?.webContents.send('trigger-scan') },
     { type: 'separator' }
   ];
 
   if (runningApps.length > 0) {
-    template.push({ label: `Running (${runningApps.length})`, enabled: false });
+    template.push({ label: i18n.t('Running ({n})', { n: runningApps.length }), enabled: false });
     for (const runApp of runningApps) {
       template.push({
-        label: `  ■ Stop ${runApp.name}`,
+        label: `  ■ ${i18n.t('Stop {name}', { name: runApp.name })}`,
         click: async () => {
           try {
             const { stopApp } = require('./processManager');
@@ -112,25 +116,31 @@ function buildTrayMenu(runningApps = []) {
 
   template.push(
     {
-      label: 'Stop All Apps',
+      label: i18n.t('Stop All Apps'),
       click: async () => {
         try {
           const { cleanupAllProcesses } = require('./processManager');
           await cleanupAllProcesses(configStore.configPath);
-          mainWindow?.webContents.send('toast', { type: 'success', message: 'Stopped all running apps' });
+          mainWindow?.webContents.send('toast', { type: 'success', message: i18n.t('Stopped all running apps') });
         } catch (err) {
           console.error('Error stopping all apps:', err);
         }
       }
     },
     { type: 'separator' },
-    { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } }
+    { label: i18n.t('Quit'), click: () => { app.isQuitting = true; app.quit(); } }
   );
 
   return Menu.buildFromTemplate(template);
 }
 
 /** Create system tray icon and menu */
+/** Settings choice (or PORTPILOT_LANG) over the system language; returns the active language. */
+function applyLanguage() {
+  i18n.setLanguage(i18n.resolveLanguage(process.env.PORTPILOT_LANG || configStore.getSettings().language, app.getPreferredSystemLanguages()));
+  return i18n.language();
+}
+
 function createTray() {
   // Create a simple tray icon (16x16 blue circle)
   const icon = nativeImage.createFromDataURL(
@@ -141,7 +151,7 @@ function createTray() {
   );
 
   tray = new Tray(icon);
-  tray.setToolTip('PortPilot - Port Manager');
+  tray.setToolTip(i18n.t('PortPilot - Port Manager'));
   tray.setContextMenu(buildTrayMenu([]));
 
   tray.on('click', () => {
@@ -199,6 +209,9 @@ if (!gotTheLock) {
     // Create window first, then pass it to ConfigStore for file watching
     const window = createWindow(null);
     configStore = new ConfigStore(window);
+    applyLanguage();
+    // Sync so the renderer knows its language before its first paint; re-resolved each load, so a saved change applies on reload.
+    ipcMain.on('i18n:getLanguage', (e) => { e.returnValue = applyLanguage(); });
     createTray();
     setupIpcHandlers(ipcMain, configStore);
 
@@ -218,10 +231,12 @@ if (!gotTheLock) {
       recordCrash(configStore.configPath, id, code, { errorTail, port: cfg?.preferredPort });
       const count = crashHistory.note(id);
       if (configStore.getSettings().notifyOnCrash !== false) {
-        const body = `${name} exited unexpectedly${code != null ? ` (code ${code})` : ''}.`;
+        const body = code != null
+          ? i18n.t('{name} exited unexpectedly (code {code}).', { name, code })
+          : i18n.t('{name} exited unexpectedly.', { name });
         try {
           if (Notification.isSupported()) {
-            new Notification({ title: 'PortPilot - app stopped', body }).show();
+            new Notification({ title: i18n.t('PortPilot - app stopped'), body }).show();
           }
         } catch (err) { console.error('Crash notification failed:', err); }
         // The in-app toast offers Ask Claude when a session is live: the one
@@ -301,8 +316,8 @@ if (!gotTheLock) {
         const apps = Array.isArray(runningApps) ? runningApps.slice(0, 20) : [];
         tray.setContextMenu(buildTrayMenu(apps));
         tray.setToolTip(apps.length > 0
-          ? `PortPilot - ${apps.length} app${apps.length !== 1 ? 's' : ''} running`
-          : 'PortPilot - Port Manager');
+          ? i18n.tn(apps.length, 'PortPilot - {n} app running', 'PortPilot - {n} apps running')
+          : i18n.t('PortPilot - Port Manager'));
         return { success: true };
       } catch (err) {
         return { success: false, error: err.message };

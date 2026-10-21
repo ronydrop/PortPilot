@@ -99,6 +99,7 @@ class ConfigStore {
       apps: [],
       groups: [],
       settings: {
+        language: 'auto',
         startMinimized: false,
         autoScan: true,
         scanInterval: 5000,

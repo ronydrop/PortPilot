@@ -5,6 +5,10 @@ const { contextBridge, ipcRenderer } = require('electron');
  * This maintains security while allowing IPC communication
  */
 contextBridge.exposeInMainWorld('portpilot', {
+  i18n: {
+    language: () => ipcRenderer.sendSync('i18n:getLanguage'),
+  },
+
   // Port operations
   ports: {
     scan: () => ipcRenderer.invoke('ports:scan'),

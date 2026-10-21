@@ -172,6 +172,8 @@ function createAgent({ configStore, port = DEFAULT_PORT, token = crypto.randomBy
       // The renderer loads the shared status/classification model as a browser
       // global (it can't require under CSP). Without this route it 404s and
       // window.PortPilotStatus is undefined -> classify() throws on scan.
+      if (req.url === '/core/i18n.js') return serveStatic(res, 'i18n.js', CORE_DIR);
+      if (req.url === '/core/locales/pt-BR.js') return serveStatic(res, 'pt-BR.js', path.join(CORE_DIR, 'locales'));
       if (req.url === '/core/status.js') return serveStatic(res, 'status.js', CORE_DIR);
       if (req.url === '/core/conflict.js') return serveStatic(res, 'conflict.js', CORE_DIR);
       if (req.url === '/core/nowStrip.js') return serveStatic(res, 'nowStrip.js', CORE_DIR);   // renderer.js reads homeLayoutOf from it

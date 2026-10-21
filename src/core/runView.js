@@ -13,6 +13,11 @@
 
   const lower = (v) => String(v || '').toLowerCase();
 
+  // Shown text goes through the app's translator (core/i18n.js) when it is installed; everywhere else it stays English.
+  const i18n = globalThis.PortPilotI18n;
+  const tr = (s, v) => (i18n ? i18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m)));
+  const LOCALE = i18n && i18n.language() === 'pt-BR' ? 'pt-BR' : 'en-GB';
+
   // A date-only bound is a LOCAL calendar day: from = its first moment, to = its last.
   function dayBound(v, endOfDay) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || '').trim());
@@ -90,20 +95,20 @@
     const crashed = run.endedBy === 'crash';
     const s = Status.rowStateOf({ running: !!live, crashed, exitCode: run.exitCode, startedBy: run.startedBy });
     let reason = s.reason;
-    if (s.state === 'stopped' && run.endedBy === 'unknown') reason = 'end not seen';
+    if (s.state === 'stopped' && run.endedBy === 'unknown') reason = tr('end not seen');
     return { ...s, reason, text: [`${s.glyph} ${s.word}`, reason].filter(Boolean).join(' · ') };
   }
 
   /** "claude b71c" / "you" for who started the run (the app rows' wording). */
   function startedByWord(run) {
     // Found running by the localhost watcher (startedBy.kind 'detected'): provenanceOf has no word for it.
-    if (run.startedBy && run.startedBy.kind === 'detected') return 'detected';
+    if (run.startedBy && run.startedBy.kind === 'detected') return tr('detected');
     const p = Status.provenanceOf(run.startedBy);
-    return p.kind === 'external' ? 'external' : p.word;
+    return p.kind === 'external' ? tr('external') : p.word;
   }
 
-  const DAY = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  const CLOCK = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const DAY = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
+  const CLOCK = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
 
   /** "Mon 5 Oct, 09:12 - 11:40" (open run: "09:12 -"). Local time. */
   function formatWhen(run) {
@@ -129,15 +134,15 @@
   function footerText(stats) {
     const s = stats || {};
     const n = s.runs || 0;
-    return `${n} run${n === 1 ? '' : 's'} · ${formatBytes(s.bytes)} of ${Math.round((s.maxBytes || 0) / 1024 / 1024)} MB`;
+    return tr(n === 1 ? '{n} run · {used} of {max} MB' : '{n} runs · {used} of {max} MB', { n, used: formatBytes(s.bytes), max: Math.round((s.maxBytes || 0) / 1024 / 1024) });
   }
 
   /** "branch @ 9c41e0a +2" / "no git" for the card's git line. */
   function gitLine(run) {
     const g = run.git;
-    if (!g || !g.sha) return 'no git';
+    if (!g || !g.sha) return tr('no git');
     const dirty = g.dirty ? ` +${(g.files || []).length || 1}` : '';
-    return `${g.branch || 'detached'} @ ${g.sha.slice(0, 7)}${dirty}`;
+    return `${g.branch || tr('detached')} @ ${g.sha.slice(0, 7)}${dirty}`;
   }
 
   /**

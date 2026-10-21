@@ -10,6 +10,11 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // Shown text goes through the app's translator (core/i18n.js) when it is installed; everywhere else it stays English.
+  const i18n = globalThis.PortPilotI18n;
+  const tr = (s, v) => (i18n ? i18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m)));
+  const LOCALE = i18n && i18n.language() === 'pt-BR' ? 'pt-BR' : 'en-GB';
+
   // Same shapes and tokens as the Apps rows (core/status.js): shape and word carry the state,
   // colour only reinforces it.
   const STATES = {
@@ -38,24 +43,24 @@
 
   function summary(rows) {
     const count = (s) => rows.filter((r) => r.state === s).length;
-    const parts = [`${count('up')} running`];
-    if (count('blocked')) parts.push(`${count('blocked')} port held`);
-    parts.push(`${count('down')} stopped`);
+    const parts = [tr('{n} running', { n: count('up') })];
+    if (count('blocked')) parts.push(tr('{n} port held', { n: count('blocked') }));
+    parts.push(tr('{n} stopped', { n: count('down') }));
     return parts.join(' · ');
   }
 
   function ago(iso, now = Date.now()) {
     const s = Math.round((now - Date.parse(iso)) / 1000);
-    if (!Number.isFinite(s)) return 'earlier';
-    if (s < 90) return `${Math.max(0, s)}s ago`;
-    if (s < 5400) return `${Math.round(s / 60)}m ago`;
-    return `${Math.round(s / 3600)}h ago`;
+    if (!Number.isFinite(s)) return tr('earlier');
+    if (s < 90) return tr('{n}s ago', { n: Math.max(0, s) });
+    if (s < 5400) return tr('{n}m ago', { n: Math.round(s / 60) });
+    return tr('{n}h ago', { n: Math.round(s / 3600) });
   }
 
   /** "Started by claude 4a2f, 3m ago", or '' with no claim. A claim is advisory and never blocks. */
   function claimLine(claim, now) {
     if (!claim || !claim.by) return '';
-    return `In use by ${claim.by} · ${ago(claim.at, now)}`;
+    return tr('In use by {who} · {when}', { who: claim.by, when: ago(claim.at, now) });
   }
 
   /** First free port from 9231 up (9222-9230 and 9240 are the usual hand-made pool). */
@@ -76,15 +81,15 @@
   /** "3 tabs: Dashboard, Settings, ..." */
   function tabsLine(tabs) {
     if (!tabs || !tabs.length) return '';
-    const names = tabs.slice(0, 3).map((t) => (t.title || t.url || 'untitled').slice(0, 40));
+    const names = tabs.slice(0, 3).map((t) => (t.title || t.url || tr('untitled')).slice(0, 40));
     const more = tabs.length > names.length ? ', ...' : '';
-    return `${tabs.length} tab${tabs.length === 1 ? '' : 's'}: ${names.join(', ')}${more}`;
+    return tr(tabs.length === 1 ? '{n} tab: {names}' : '{n} tabs: {names}', { n: tabs.length, names: names.join(', ') + more });
   }
 
   // ---- History expander ----------------------------------------------------------
 
-  const DAY = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  const CLOCK = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const DAY = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
+  const CLOCK = new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
   const MAX_SHOWN_TABS = 6;
 
   /** "Mon 13 Oct, 14:02 - 14:40" in local time; an open session has no end: "Mon 13 Oct, 14:02". */
@@ -99,26 +104,26 @@
 
   /** Who started a session: "you" for the desktop, "claude b71c" (or the agent's name) otherwise. */
   function startedByWord(by) {
-    if (!by) return 'unknown';
-    if (by.kind === 'human') return 'you';
+    if (!by) return tr('unknown');
+    if (by.kind === 'human') return tr('you');
     if (by.label) return String(by.label);
-    return by.sessionId ? `claude ${String(by.sessionId).replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toLowerCase()}` : (by.kind || 'unknown');
+    return by.sessionId ? `claude ${String(by.sessionId).replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toLowerCase()}` : (by.kind || tr('unknown'));
   }
 
   /** How a session ended: "stopped by you", "closed outside PortPilot", or '' while it runs. */
   function endedWord(e) {
     if (!e || !e.stoppedAt) return '';
     const by = e.endedBy;
-    if (!by) return 'ended';
-    if (by.reason === 'closed') return 'closed outside PortPilot';
-    if (by.reason === 'unknown') return 'end not seen';
-    return `stopped by ${startedByWord(by)}`;
+    if (!by) return tr('ended');
+    if (by.reason === 'closed') return tr('closed outside PortPilot');
+    if (by.reason === 'unknown') return tr('end not seen');
+    return tr('stopped by {who}', { who: startedByWord(by) });
   }
 
   /** One line for a past session: when, who, tab count, how it ended. */
   function sessionLine(e) {
     const n = (e.tabs || []).length;
-    return [sessionWhen(e), `started by ${startedByWord(e.startedBy)}`, `${n} tab${n === 1 ? '' : 's'}`, e.stoppedAt ? endedWord(e) : 'running now'].filter(Boolean).join(' · ');
+    return [sessionWhen(e), tr('started by {who}', { who: startedByWord(e.startedBy) }), tr(n === 1 ? '{n} tab' : '{n} tabs', { n }), e.stoppedAt ? endedWord(e) : tr('running now')].filter(Boolean).join(' · ');
   }
 
   /** A tab's label: its title, else the address without the scheme. */
@@ -137,9 +142,9 @@
   /** The toast after Open again. */
   function reopenText(res) {
     const n = res.opened || 0;
-    const parts = [n ? `Opened ${n} tab${n === 1 ? '' : 's'} in ${res.name}` : `Started ${res.name}; no tabs to add`];
-    if (res.failed) parts.push(`${res.failed} could not be opened`);
-    if (res.hidden) parts.push('Addresses had secrets hidden when saved, so some pages may ask you to sign in again');
+    const parts = [n ? tr(n === 1 ? 'Opened {n} tab in {name}' : 'Opened {n} tabs in {name}', { n, name: res.name }) : tr('Started {name}; no tabs to add', { name: res.name })];
+    if (res.failed) parts.push(tr('{n} could not be opened', { n: res.failed }));
+    if (res.hidden) parts.push(tr('Addresses had secrets hidden when saved, so some pages may ask you to sign in again'));
     return parts.join('. ');
   }
 
@@ -156,8 +161,8 @@
     if (!w) return '';
     const size = Number.isFinite(w.width) || Number.isFinite(w.height) ? `${Number.isFinite(w.width) ? w.width : '?'}x${Number.isFinite(w.height) ? w.height : '?'}` : '';
     const at = Number.isFinite(w.left) || Number.isFinite(w.top) ? `${Number.isFinite(w.left) ? w.left : '?'},${Number.isFinite(w.top) ? w.top : '?'}` : '';
-    const place = [size, at && `at ${at}`].filter(Boolean).join(' ');
-    return [place, w.front ? 'stays in front' : ''].filter(Boolean).join(' · ');
+    const place = [size, at && tr('at {pos}', { pos: at })].filter(Boolean).join(' ');
+    return [place, w.front ? tr('stays in front') : ''].filter(Boolean).join(' · ');
   }
 
   /** The toast after Start when a saved window did not land where it was asked to. */
@@ -165,9 +170,9 @@
     if (!win) return '';
     const bits = [];
     if (win.requested && Object.keys(win.requested).length && !win.applied) {
-      bits.push(win.actual ? 'The window is not exactly where the profile says: the system adjusted it.' : 'The window could not be placed.');
+      bits.push(win.actual ? tr('The window is not exactly where the profile says: the system adjusted it.') : tr('The window could not be placed.'));
     }
-    if (win.front && win.front.topmost === false) bits.push('Always-on-top did not take; the window was brought to the front once.');
+    if (win.front && win.front.topmost === false) bits.push(tr('Always-on-top did not take; the window was brought to the front once.'));
     return bits.join(' ');
   }
 
@@ -202,15 +207,15 @@
 
   /** One sentence for the panel: the error as written, then the next step in plain words. */
   function failureText(res) {
-    if (!res) return 'Something went wrong.';
-    const error = String(res.error || 'Something went wrong.').replace(/\s+/g, ' ').trim().replace(/^[a-z]/, (c) => c.toUpperCase());
-    const next = NEXT[res.code];
+    if (!res) return tr('Something went wrong.');
+    const error = String(res.error || tr('Something went wrong.')).replace(/\s+/g, ' ').trim().replace(/^[a-z]/, (c) => c.toUpperCase());
+    const next = NEXT[res.code] && tr(NEXT[res.code]);
     return next ? `${error.replace(/[.\s]+$/, '')}. ${next}` : error;
   }
 
   /** "Vault Pass 1.10.2, uBlock Origin 1.5" or a plain empty-state sentence. */
   function extensionsText(list) {
-    if (!list || !list.length) return 'No extensions installed in this profile yet.';
+    if (!list || !list.length) return tr('No extensions installed in this profile yet.');
     return list.map((e) => `${e.name} ${e.version}`).join(', ');
   }
 

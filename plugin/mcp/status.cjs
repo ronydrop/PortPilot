@@ -18,6 +18,9 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // Shown text goes through the app's translator (core/i18n.js) when it is installed; everywhere else it stays English.
+  const tr = (s, v) => (globalThis.PortPilotI18n ? globalThis.PortPilotI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m)));
+
   // ---- Status model -------------------------------------------------------
   // Six states, shape-differentiated so they survive greyscale, colour-blind
   // vision, and all themes. `token` is the per-theme CSS variable that carries
@@ -181,22 +184,22 @@
   function provenanceOf(startedBy) {
     const s = startedBy || null;
     if (!s || s.kind === 'external' || !PROVENANCE_KINDS.includes(s.kind)) {
-      return { kind: 'external', word: 'external', glyph: '', title: 'Found running - not started by PortPilot' };
+      return { kind: 'external', word: tr('external'), glyph: '', title: tr('Found running - not started by PortPilot') };
     }
-    const when = s.at ? ` at ${s.at}` : '';
+    const when = s.at ? tr(' at {time}', { time: s.at }) : '';
     if (s.kind === 'human') {
-      return { kind: 'human', word: 'you', glyph: '', title: `Started by you from ${s.surface}${when}` };
+      return { kind: 'human', word: tr('you'), glyph: '', title: tr('Started by you from {surface}', { surface: s.surface }) + when };
     }
     const short = shortSession(s.sessionId);
     // kind 'claude' is the stored name for "an AI assistant started it" (renaming it would orphan
     // every stamp already on disk). A label that names another assistant ("cursor") is shown instead.
     const agent = agentName(s.label);
-    const session = s.sessionId ? ` (session ${s.sessionId}${s.label && !agent.other ? `, ${s.label}` : ''})` : '';
+    const session = s.sessionId ? tr(' (session {id})', { id: s.sessionId + (s.label && !agent.other ? `, ${s.label}` : '') }) : '';
     return {
       kind: 'claude',
       word: short ? `${agent.word} ${short}` : agent.word,
       glyph: CLAUDE_GLYPH,
-      title: `Started by ${agent.title}${session} via ${s.surface}${when}`,
+      title: tr('Started by {agent}{session} via {surface}', { agent: agent.title, session, surface: s.surface }) + when,
     };
   }
 
@@ -236,17 +239,17 @@
     const alive = key === 'running' || key === 'error';
 
     let reason = '';
-    if (key === 'crashed' && r.exitCode != null) reason = `exit ${r.exitCode}`;
+    if (key === 'crashed' && r.exitCode != null) reason = tr('exit {code}', { code: r.exitCode });
     if (key === 'conflict' && r.blockedBy) reason = String(r.blockedBy);
 
     const uptime = alive ? formatUptime(r.uptimeSec) : '';
     const prov = alive && r.startedBy ? provenanceOf(r.startedBy) : null;
     const provenance = prov && prov.kind !== 'external' ? prov.word : '';
 
-    const word = ROW_WORDS[key] || s.label;
+    const word = tr(ROW_WORDS[key] || s.label);
     const head = `${s.glyph} ${word}${uptime ? ' ' + uptime : ''}`;
     const text = [head, reason, provenance].filter(Boolean).join(' · ');
-    const title = [word + (reason ? ` (${reason})` : ''), uptime && `up ${uptime}`, prov && provenance && prov.title]
+    const title = [word + (reason ? ` (${reason})` : ''), uptime && tr('up {time}', { time: uptime }), prov && provenance && prov.title]
       .filter(Boolean).join(' - ');
 
     return { state: key, shape: s.shape, glyph: s.glyph, ascii: s.ascii, token: s.token,

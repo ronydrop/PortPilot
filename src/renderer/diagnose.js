@@ -58,7 +58,7 @@
     } else if (ev.kind === 'text') {
       panel.answerText += (panel.answerText ? '\n\n' : '') + ev.text;
       renderAnswer();
-      panel.status.textContent = 'Writing the answer...';
+      panel.status.textContent = t('Writing the answer...');
     } else if (ev.kind === 'error') {
       panel.error = ev.text;
     } else if (ev.kind === 'done') {
@@ -69,11 +69,11 @@
         panel.status.textContent = '';
         panel.body.appendChild(el('p', 'diag-msg error', panel.error));
       } else {
-        panel.status.textContent = 'Done. Claude only read files; nothing was changed.';
+        panel.status.textContent = t('Done. Claude only read files; nothing was changed.');
       }
       setFoot(
-        button('Copy answer', '', () => navigator.clipboard.writeText(panel.answerText).catch(() => {})),
-        button('Close', 'ghost', close),
+        button(t('Copy answer'), '', () => navigator.clipboard.writeText(panel.answerText).catch(() => {})),
+        button(t('Close'), 'ghost', close),
       );
     }
   }
@@ -85,29 +85,29 @@
     panel.activity = el('div', 'diag-activity');
     panel.answer = el('div', 'diag-answer');
     panel.answerText = '';
-    panel.status = el('div', 'diag-status', 'Reading the crash output and project files...');
+    panel.status = el('div', 'diag-status', t('Reading the crash output and project files...'));
     panel.body.replaceChildren(panel.status, panel.activity, panel.answer);
-    setFoot(button('Cancel', '', () => { api().cancel(panel.appId).catch(() => {}); }));
+    setFoot(button(t('Cancel'), '', () => { api().cancel(panel.appId).catch(() => {}); }));
     if (!offEvent) offEvent = api().onEvent(onEvent);
     const res = await api().start(panel.appId).catch((e) => ({ success: false, error: e.message }));
     if (!res || !res.success) {
       panel.running = false;
-      showMessage((res && res.error) || 'Could not start the diagnosis.', 'error');
-      setFoot(button('Close', 'ghost', close));
+      showMessage((res && res.error) || t('Could not start the diagnosis.'), 'error');
+      setFoot(button(t('Close'), 'ghost', close));
     }
   }
 
   async function askConsent() {
     panel.body.replaceChildren(
-      el('p', 'diag-msg', 'Diagnose sends this app\'s last crash output and folder path to your own Claude Code, using your own sign-in or API key and your usage.'),
-      el('p', 'diag-msg dim', 'Claude can only read files in the app folder (no commands, no edits, your Claude Code settings and hooks are not used). Keys and passwords in the crash output are masked first, but files it reads, such as a .env, are sent as they are. You can cancel at any time.'),
+      el('p', 'diag-msg', t('Diagnose sends this app\'s last crash output and folder path to your own Claude Code, using your own sign-in or API key and your usage.')),
+      el('p', 'diag-msg dim', t('Claude can only read files in the app folder (no commands, no edits, your Claude Code settings and hooks are not used). Keys and passwords in the crash output are masked first, but files it reads, such as a .env, are sent as they are. You can cancel at any time.')),
     );
     setFoot(
-      button('Allow and diagnose', 'primary', async () => {
+      button(t('Allow and diagnose'), 'primary', async () => {
         const r = await api().consent().catch(() => ({ success: false }));
-        if (r && r.success) run(); else showMessage('Could not save your choice.', 'error');
+        if (r && r.success) run(); else showMessage(t('Could not save your choice.'), 'error');
       }),
-      button('Not now', 'ghost', close),
+      button(t('Not now'), 'ghost', close),
     );
   }
 
@@ -117,8 +117,8 @@
     const root = el('div', 'diag-overlay');
     const card = el('div', 'diag-card');
     const head = el('div', 'diag-head');
-    head.appendChild(el('div', 'diag-title', `Diagnose ${name || 'app'}`));
-    head.appendChild(button('Close', 'ghost', close));
+    head.appendChild(el('div', 'diag-title', t('Diagnose {name}', { name: name || t('app') })));
+    head.appendChild(button(t('Close'), 'ghost', close));
     const body = el('div', 'diag-body');
     const foot = el('div', 'diag-foot');
     card.append(head, body, foot);
@@ -129,13 +129,13 @@
 
     const st = await api().status(appId).catch(() => null);
     if (!panel || panel.appId !== appId) return;
-    if (!st || !st.success) { showMessage('Could not check Claude Code.', 'error'); setFoot(button('Close', 'ghost', close)); return; }
+    if (!st || !st.success) { showMessage(t('Could not check Claude Code.'), 'error'); setFoot(button(t('Close'), 'ghost', close)); return; }
     if (!st.cli) {
-      showMessage('Claude Code is not installed. Install it from https://claude.com/claude-code and sign in once, then try again.', 'error');
-      setFoot(button('Close', 'ghost', close));
+      showMessage(t('Claude Code is not installed. Install it from https://claude.com/claude-code and sign in once, then try again.'), 'error');
+      setFoot(button(t('Close'), 'ghost', close));
       return;
     }
-    if (st.running) { showMessage('A diagnosis is already running for this app.'); setFoot(button('Close', 'ghost', close)); return; }
+    if (st.running) { showMessage(t('A diagnosis is already running for this app.')); setFoot(button(t('Close'), 'ghost', close)); return; }
     if (!st.consent) { askConsent(); return; }
     run();
   }

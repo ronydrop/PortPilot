@@ -9,12 +9,12 @@
   const PAGE = 50;
   const POLL_MS = 4000;
   const STAGE_TEXT = {
-    checking: 'Checking the repo',
-    worktree: 'Creating the worktree',
-    install: 'Installing dependencies',
-    register: 'Registering the app',
-    start: 'Starting',
-    done: 'Started',
+    checking: t('Checking the repo'),
+    worktree: t('Creating the worktree'),
+    install: t('Installing dependencies'),
+    register: t('Registering the app'),
+    start: t('Starting'),
+    done: t('Started'),
   };
 
   const h = {
@@ -57,15 +57,15 @@
         .map((it) => `<option value="${esc(it.id)}">${esc(it.name)}</option>`).join('');
       sel.value = items.some((it) => it.id === cur) ? cur : '';
     };
-    fill($('history-app'), 'App: all', f.apps);
-    fill($('history-branch'), 'Branch: all', f.branches.map((b) => ({ id: b, name: b })));
+    fill($('history-app'), t('App: all'), f.apps);
+    fill($('history-branch'), t('Branch: all'), f.branches.map((b) => ({ id: b, name: b })));
   }
 
   function thumbHtml(run) {
     const url = h.thumbs.get(run.id);
     return url
-      ? `<img src="${url}" alt="Preview of ${esc(RV.labelOf(run) || 'the app')}" loading="lazy" width="96" height="60">`
-      : '<span class="hthumb-empty">no preview</span>';
+      ? `<img src="${url}" alt="${t('Preview of {name}', { name: esc(RV.labelOf(run) || t('the app')) })}" loading="lazy" width="96" height="60">`
+      : `<span class="hthumb-empty">${t('no preview')}</span>`;
   }
 
   function actionsHtml(run) {
@@ -76,16 +76,16 @@
       `<button type="button" class="btn btn-small btn-secondary" data-hact="${act}" data-run="${esc(run.id)}"${title ? ` title="${esc(title)}"` : ''}${extra}>${label}</button>`;
     // Only a run that was recorded with a start command (a detected server) offers it.
     const again = run.stoppedAt && run.startCommand
-      ? btn('startagain', busy ? 'Starting' : 'Start again', busy || !h.startable.has(run.id) ? ' disabled' : '',
-        h.startable.has(run.id) ? `Run ${run.startCommand} in ${run.cwd}` : 'The project folder is gone')
+      ? btn('startagain', busy ? t('Starting') : t('Start again'), busy || !h.startable.has(run.id) ? ' disabled' : '',
+        h.startable.has(run.id) ? t('Run {command} in {folder}', { command: run.startCommand, folder: run.cwd }) : t('The project folder is gone'))
       : '';
     return [
-      btn('open', 'Open URL', live ? '' : ' disabled', live ? run.url : 'Only while this run is up'),
+      btn('open', t('Open URL'), live ? '' : ' disabled', live ? run.url : t('Only while this run is up')),
       again,
-      btn('rerun', busy ? 'Re-running' : 'Re-run this version', busy || !hasGit ? ' disabled' : '',
-        hasGit ? 'Bring this version back in a new worktree' : 'No git state was recorded for this run'),
-      btn('sha', 'Copy SHA', hasGit ? '' : ' disabled'),
-      btn('pin', run.pinned ? 'Unpin' : 'Pin', '', run.pinned ? 'Exempt from pruning' : 'Keep this run when the history is pruned'),
+      btn('rerun', busy ? t('Re-running') : t('Re-run this version'), busy || !hasGit ? ' disabled' : '',
+        hasGit ? t('Bring this version back in a new worktree') : t('No git state was recorded for this run')),
+      btn('sha', t('Copy SHA'), hasGit ? '' : ' disabled'),
+      btn('pin', run.pinned ? t('Unpin') : t('Pin'), '', run.pinned ? t('Exempt from pruning') : t('Keep this run when the history is pruned')),
     ].join('');
   }
 
@@ -100,7 +100,7 @@
   <div class="hthumb${h.thumbs.has(run.id) ? '' : ' empty'}">${thumbHtml(run)}</div>
   <div class="hmain">
     <div class="hline">
-      <span class="happ">${esc(label)}</span>${run.port ? `<span class="hport">:${esc(run.port)}</span>` : ''}${run.detected ? '<span class="hdetected" title="Found running on this machine; PortPilot did not start it">detected</span>' : ''}${run.pinned ? '<span class="hpin" title="Pinned" aria-label="Pinned">&#9733;</span>' : ''}
+      <span class="happ">${esc(label)}</span>${run.port ? `<span class="hport">:${esc(run.port)}</span>` : ''}${run.detected ? `<span class="hdetected" title="${t('Found running on this machine; PortPilot did not start it')}">${t('detected')}</span>` : ''}${run.pinned ? `<span class="hpin" title="${t('Pinned')}" aria-label="${t('Pinned')}">&#9733;</span>` : ''}
       <span class="hwhen" title="${esc(run.startedAt)}">${esc(RV.formatWhen(run))}</span>
     </div>
     <div class="hline hline-sub">
@@ -109,7 +109,7 @@
     </div>
     <div class="hline hline-sub">
       <span class="state-cell state-${esc(st.state)}" style="--state-color: var(${esc(st.token)})"><span class="state-glyph" aria-hidden="true">${esc(st.glyph)}</span><span class="state-word">${esc(st.word)}</span>${st.reason ? `<span class="state-meta">${esc(st.reason)}</span>` : ''}</span>
-      ${run.detected ? '' : `<span class="hby">${esc(RV.startedByWord(run))}</span>`}${run.rerunOf ? '<span class="hby">re-run</span>' : ''}
+      ${run.detected ? '' : `<span class="hby">${esc(RV.startedByWord(run))}</span>`}${run.rerunOf ? `<span class="hby">${t('re-run')}</span>` : ''}
     </div>
     ${prog ? `<div class="hprog" role="status">${esc(prog)}</div>` : ''}
     ${err ? `<div class="herr" role="alert">${esc(err)}</div>` : ''}
@@ -124,13 +124,13 @@
     const matches = RV.filterRuns(h.runs, f);
     const shown = matches.slice(0, h.limit);
     let html;
-    if (!h.runs.length) html = '<div class="empty-state">No runs recorded yet. Start an app and it appears here.</div>';
-    else if (!matches.length) html = '<div class="empty-state">No runs match these filters.</div>';
+    if (!h.runs.length) html = `<div class="empty-state">${t('No runs recorded yet. Start an app and it appears here.')}</div>`;
+    else if (!matches.length) html = `<div class="empty-state">${t('No runs match these filters.')}</div>`;
     else html = shown.map(rowHtml).join('');
     if (html !== h.lastHtml) { $('history-list').innerHTML = html; h.lastHtml = html; }
 
     const foot = RV.footerText(h.stats);
-    const count = isFiltered(f) || matches.length > shown.length ? ` · showing ${shown.length} of ${matches.length}` : '';
+    const count = isFiltered(f) || matches.length > shown.length ? t(' · showing {shown} of {total}', { shown: shown.length, total: matches.length }) : '';
     $('history-footer').textContent = foot + count;
     $('history-more').classList.toggle('hidden', matches.length <= shown.length);
     wantThumbs(shown);
@@ -160,7 +160,7 @@
       h.stats = res.stats;
       render();
     } catch (err) {
-      $('history-list').innerHTML = `<div class="empty-state">Could not read the history: ${esc(err.message)}</div>`;
+      $('history-list').innerHTML = `<div class="empty-state">${t('Could not read the history: {error}', { error: esc(err.message) })}</div>`;
       h.lastHtml = '';
     }
   }
@@ -195,11 +195,11 @@
     try {
       const res = await window.portpilot.history.rerun(runId);
       if (res.success) {
-        showToast(`Re-running ${run.appName || 'app'} on :${res.port}`, 'success');
+        showToast(t('Re-running {name} on :{port}', { name: run.appName || t('app'), port: res.port }), 'success');
         if (res.warning) showToast(res.warning, 'warning');
         if (typeof loadApps === 'function') loadApps();
       } else {
-        h.errors.set(runId, res.error || 'Re-run failed.');
+        h.errors.set(runId, res.error || t('Re-run failed.'));
       }
     } catch (err) {
       h.errors.set(runId, err.message);
@@ -212,16 +212,16 @@
     const run = h.runs.find((r) => r.id === runId);
     if (!run || h.progress.has(runId)) return;
     h.errors.delete(runId);
-    h.progress.set(runId, 'Starting');
+    h.progress.set(runId, t('Starting'));
     render();
     try {
       const res = await window.portpilot.history.startAgain(runId);
       if (res.success) {
-        showToast(`Started ${run.appName || 'app'}${res.port ? ` on :${res.port}` : ''}`, 'success');
+        showToast(res.port ? t('Started {name} on :{port}', { name: run.appName || t('app'), port: res.port }) : t('Started {name}', { name: run.appName || t('app') }), 'success');
         if (res.up && res.url) window.portpilot.openExternal(res.url);
         if (typeof loadApps === 'function') loadApps();
       } else {
-        h.errors.set(runId, res.error || 'Could not start it again.');
+        h.errors.set(runId, res.error || t('Could not start it again.'));
       }
     } catch (err) {
       h.errors.set(runId, err.message);
@@ -240,7 +240,7 @@
         break;
       case 'sha':
         navigator.clipboard.writeText(run.git.sha);
-        showToast(`Copied ${run.git.sha.slice(0, 7)}`, 'success');
+        showToast(t('Copied {text}', { text: run.git.sha.slice(0, 7) }), 'success');
         break;
       case 'pin': {
         const res = await window.portpilot.history.pin(runId, !run.pinned);

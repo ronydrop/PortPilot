@@ -162,29 +162,29 @@ async function checkDockerStatus() {
 }
 
 async function startDocker() {
-  showToast('Starting Docker Desktop...', 'success');
+  showToast(t('Starting Docker Desktop...'), 'success');
   try {
     const result = await window.portpilot.docker.start();
     if (result.success) {
-      showToast('Docker Desktop starting - please wait...', 'success');
+      showToast(t('Docker Desktop starting - please wait...'), 'success');
       pollDockerReady();
     } else {
-      showToast('Failed to start Docker: ' + result.error, 'error');
+      showToast(t('Failed to start Docker: {error}', { error: result.error }), 'error');
     }
   } catch (error) {
-    showToast('Failed to start Docker: ' + error.message, 'error');
+    showToast(t('Failed to start Docker: {error}', { error: error.message }), 'error');
   }
 }
 
 function pollDockerReady(attempts = 0) {
   if (attempts > 30) {
-    showToast('Docker taking too long to start', 'error');
+    showToast(t('Docker taking too long to start'), 'error');
     return;
   }
   setTimeout(async () => {
     const running = await checkDockerStatus();
     if (running) {
-      showToast('Docker Desktop is ready!', 'success');
+      showToast(t('Docker Desktop is ready!'), 'success');
       renderApps();
     } else {
       pollDockerReady(attempts + 1);
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.portpilot.on('config-changed', async (data) => {
     console.log('[Renderer] Config changed externally, refreshing apps list...');
     await loadApps();
-    showToast('Apps list updated (external change detected)', 'info');
+    showToast(t('Apps list updated (external change detected)'), 'info');
   });
 });
 
@@ -315,8 +315,8 @@ function setupDelegation() {
     shareApp: el => openShareModal(el.dataset.id, +el.dataset.port),
     toggleReserve: el => toggleReserve(el.dataset.id),
     closeShareModal: () => closeShareModal(),
-    copyShareLocal: () => copyText(document.getElementById('share-local-url').value, 'Local URL copied'),
-    copyShareLan: () => copyText(document.getElementById('share-lan-url').value, 'LAN URL copied')
+    copyShareLocal: () => copyText(document.getElementById('share-local-url').value, t('Local URL copied')),
+    copyShareLan: () => copyText(document.getElementById('share-lan-url').value, t('LAN URL copied'))
   };
   const CHANGE = {
     toggleAppSelection: el => toggleAppSelection(el.dataset.id),
@@ -420,6 +420,9 @@ function setupEventListeners() {
   document.getElementById('setting-auto-register').addEventListener('change', saveSettings);
   document.getElementById('setting-row-previews').addEventListener('change', saveSettings);
   document.getElementById('setting-auto-track').addEventListener('change', saveSettings);
+  document.getElementById('setting-language').addEventListener('change', saveSettings);
+  // The web portal follows the browser's language; only the desktop app stores a choice.
+  if (!window.portpilot.i18n) document.getElementById('setting-language-row').classList.add('hidden');
   document.getElementById('btn-export').addEventListener('click', exportConfig);
   document.getElementById('btn-import').addEventListener('click', importConfig);
 
@@ -448,7 +451,7 @@ function setupEventListeners() {
     document.getElementById('btn-open-web').addEventListener('click', () => window.portpilot.agent.open());
     document.getElementById('btn-copy-web').addEventListener('click', () => {
       const url = document.getElementById('web-agent-url').textContent;
-      if (url) { navigator.clipboard.writeText(url); showToast('URL copied', 'success'); }
+      if (url) { navigator.clipboard.writeText(url); showToast(t('URL copied'), 'success'); }
     });
   } else {
     document.getElementById('web-agent-section')?.classList.add('hidden');
@@ -542,13 +545,13 @@ async function scanPorts() {
     if (result.success) {
       state.ports = result.ports.sort((a, b) => a.port - b.port);
       renderPorts();
-      showToast(`Found ${state.ports.length} active ports`, 'success');
+      showToast(tn(state.ports.length, 'Found {n} active port', 'Found {n} active ports'), 'success');
       fetchAllPortDetails();
     } else {
-      showToast('Failed to scan ports: ' + result.error, 'error');
+      showToast(t('Failed to scan ports: {error}', { error: result.error }), 'error');
     }
   } catch (error) {
-    showToast('Scan error: ' + error.message, 'error');
+    showToast(t('Scan error: {error}', { error: error.message }), 'error');
   } finally {
     btn.disabled = false;
   }
@@ -591,16 +594,16 @@ function renderPorts() {
   if (dom.portsSummary) {
     dom.portsSummary.textContent = total === 0
       ? ''
-      : `${buckets.dev.length} dev · ${buckets.other.length} other · ${buckets.system.length} system`;
+      : t('{dev} dev · {other} other · {system} system', { dev: buckets.dev.length, other: buckets.other.length, system: buckets.system.length });
   }
 
   if (total === 0) {
     dom.portsList.innerHTML = `<div class="empty-state">${
       state.ports.length === 0
-        ? 'Click scan to discover active ports'
+        ? t('Click scan to discover active ports')
         : (state.globalSearch
-            ? `No ports match "${escapeHtml(state.globalSearch)}"`
-            : 'All ports are matched to apps.')
+            ? t('No ports match "{q}"', { q: escapeHtml(state.globalSearch) })
+            : t('All ports are matched to apps.'))
     }</div>`;
     return;
   }
@@ -642,7 +645,7 @@ function showPortsRow(port) {
   if (p) state.portGroupExpanded[window.PortPilotStatus.classify(p)] = true;
   renderPorts();
   const row = dom.portsList.querySelector(`.port-row[data-port="${port}"]`);
-  if (!row) { showToast(`:${port} is not in the Ports list - try Scan`, 'info'); return; }
+  if (!row) { showToast(t(':{port} is not in the Ports list - try Scan', { port }), 'info'); return; }
   flashInto(row);
 }
 
@@ -655,7 +658,7 @@ function renderPortGroup(key, meta, rows, ownerByPort = new Map()) {
     <div class="port-group" data-portgroup="${key}">
       <div class="section-header port-group-header" data-act="togglePortGroup" data-portgroup="${key}">
         <span class="section-toggle">${chev}</span>
-        <span class="section-title">${escapeHtml(meta.label)}</span>
+        <span class="section-title">${escapeHtml(t(meta.label))}</span>
         <span class="section-count">${rows.length}</span>
       </div>
       <div class="port-group-rows ${expanded ? '' : 'collapsed'}">
@@ -669,7 +672,7 @@ function renderPortRow(p, group, owner = '') {
   // Active listening ports are, by definition, running. Other states
   // (conflict / error / starting) arrive once apps are merged in.
   const status = S.statusOf({ running: true });
-  const proc = p.processName || 'Unknown';
+  const proc = p.processName || t('Unknown');
   const cmdLine = p.commandLine || '';
   const exePath = extractExePath(cmdLine);
   const addr = p.address || '';
@@ -683,20 +686,20 @@ function renderPortRow(p, group, owner = '') {
 
   return `
     <div class="port-row" data-port="${p.port}">
-      <span class="status-dot status-dot--${status.shape}" style="--dot-color: var(${status.token})" title="${status.label}"></span>
+      <span class="status-dot status-dot--${status.shape}" style="--dot-color: var(${status.token})" title="${t(status.label)}"></span>
       <span class="port-cell">
-        <a class="port-link" data-act="openPortInBrowser" data-port="${p.port}" title="Open localhost:${p.port}">:${p.port}</a>
-        ${exposed ? `<span class="port-exposed" title="Listening on all interfaces - network accessible">${icon('globe', 10)}</span>` : ''}
+        <a class="port-link" data-act="openPortInBrowser" data-port="${p.port}" title="${t('Open localhost:{port}', { port: p.port })}">:${p.port}</a>
+        ${exposed ? `<span class="port-exposed" title="${t('Listening on all interfaces - network accessible')}">${icon('globe', 10)}</span>` : ''}
       </span>
-      <span class="port-proc" title="${escapeHtml(proc)}${p.pid ? ` (PID ${p.pid})` : ''}${cmdLine ? `\n${escapeHtml(cmdLine)}` : ''}">${escapeHtml(proc)}${owner ? ` <span class="port-owner" title="Belongs to the registered app ${escapeHtml(owner)}">${escapeHtml(owner)}</span>` : ''}</span>
+      <span class="port-proc" title="${escapeHtml(proc)}${p.pid ? ` (PID ${p.pid})` : ''}${cmdLine ? `\n${escapeHtml(cmdLine)}` : ''}">${escapeHtml(proc)}${owner ? ` <span class="port-owner" title="${t('Belongs to the registered app {name}', { name: escapeHtml(owner) })}">${escapeHtml(owner)}</span>` : ''}</span>
       <span class="port-cmd" title="${escapeHtml(cmdLine)}">${escapeHtml(cmdLine)}</span>
       <span class="port-pid" title="PID ${p.pid || ''}">${p.pid || ''}</span>
       <span class="port-row-actions">
-        ${canAdopt ? `<button class="btn btn-small btn-secondary" data-act="adoptPort" data-port="${p.port}" title="Adopt as app">${icon('plus', 12)}</button>` : slot}
-        <button class="btn btn-small btn-secondary" data-act="openPortInBrowser" data-port="${p.port}" title="Open in browser">${icon('browser', 12)}</button>
-        ${exePath ? `<button class="btn btn-small btn-secondary" data-act="openProcessFolder" data-path="${escapeHtml(exePath)}" title="Open folder">${icon('folder', 12)}</button>` : slot}
-        <button class="btn btn-small btn-secondary" data-act="copyPort" data-port="${p.port}" title="Copy localhost:${p.port}">${icon('copy', 12)}</button>
-        <button class="btn btn-small btn-danger" data-act="killPort" data-port="${p.port}" data-confirm-key="kill-port:${p.port}" title="Kill process">${icon('kill', 12)}</button>
+        ${canAdopt ? `<button class="btn btn-small btn-secondary" data-act="adoptPort" data-port="${p.port}" title="${t('Adopt as app')}">${icon('plus', 12)}</button>` : slot}
+        <button class="btn btn-small btn-secondary" data-act="openPortInBrowser" data-port="${p.port}" title="${t('Open in browser')}">${icon('browser', 12)}</button>
+        ${exePath ? `<button class="btn btn-small btn-secondary" data-act="openProcessFolder" data-path="${escapeHtml(exePath)}" title="${t('Open folder')}">${icon('folder', 12)}</button>` : slot}
+        <button class="btn btn-small btn-secondary" data-act="copyPort" data-port="${p.port}" title="${t('Copy localhost:{port}', { port: p.port })}">${icon('copy', 12)}</button>
+        <button class="btn btn-small btn-danger" data-act="killPort" data-port="${p.port}" data-confirm-key="kill-port:${p.port}" title="${t('Kill process')}">${icon('kill', 12)}</button>
       </span>
     </div>`;
 }
@@ -712,33 +715,33 @@ function adoptPort(portNum) {
   document.getElementById('app-name').value = guessAdoptName(p);
   document.getElementById('app-command').value = p.commandLine || '';
   document.getElementById('app-port').value = p.port;
-  showToast('Review the command and set a working directory before saving', 'info');
+  showToast(t('Review the command and set a working directory before saving'), 'info');
 }
 
 function guessAdoptName(p) {
   const base = String(p.processName || 'app').replace(/\.(exe|app|bin)$/i, '');
-  return base ? base.charAt(0).toUpperCase() + base.slice(1) : 'New app';
+  return base ? base.charAt(0).toUpperCase() + base.slice(1) : t('New app');
 }
 
 // Callers confirm first (the Ports row button arms inline via confirmInline).
 async function killPort(port) {
   const result = await window.portpilot.ports.kill(port);
   if (result.success) {
-    showToast(`Killed process on port ${port}`, 'success');
+    showToast(t('Killed process on port {port}', { port }), 'success');
     await scanPorts();
   } else {
-    showToast('Failed to kill: ' + result.error, 'error');
+    showToast(t('Failed to kill: {error}', { error: result.error }), 'error');
   }
 }
 
 function copyPort(port) {
   navigator.clipboard.writeText(`localhost:${port}`);
-  showToast(`Copied localhost:${port}`, 'success');
+  showToast(t('Copied localhost:{port}', { port }), 'success');
 }
 
 function copyCmdPath(cmdPath) {
   navigator.clipboard.writeText(cmdPath);
-  showToast('Command path copied', 'success');
+  showToast(t('Command path copied'), 'success');
 }
 
 async function fetchAllPortDetails() {
@@ -764,9 +767,9 @@ async function openPortInBrowser(port) {
   const url = `http://localhost:${port}`;
   try {
     await window.portpilot.openExternal(url);
-    showToast(`Opened localhost:${port}`, 'success');
+    showToast(t('Opened localhost:{port}', { port }), 'success');
   } catch (err) {
-    showToast('Failed to open browser', 'error');
+    showToast(t('Failed to open browser'), 'error');
   }
 }
 
@@ -776,10 +779,10 @@ async function openProcessFolder(exePath) {
     const dir = exePath.substring(0, exePath.lastIndexOf('\\')) || exePath.substring(0, exePath.lastIndexOf('/'));
     if (dir) {
       await window.portpilot.openExternal(`file:///${dir.replace(/\\/g, '/')}`);
-      showToast('Opened folder', 'success');
+      showToast(t('Opened folder'), 'success');
     }
   } catch (err) {
-    showToast('Failed to open folder', 'error');
+    showToast(t('Failed to open folder'), 'error');
   }
 }
 
@@ -788,9 +791,9 @@ async function openAppFolder(appId) {
   if (!app || !app.cwd) return;
   try {
     await window.portpilot.openExternal(`file:///${app.cwd.replace(/\\/g, '/')}`);
-    showToast('Opened folder', 'success');
+    showToast(t('Opened folder'), 'success');
   } catch (err) {
-    showToast('Failed to open folder', 'error');
+    showToast(t('Failed to open folder'), 'error');
   }
 }
 
@@ -817,12 +820,12 @@ async function openInBrowser(appId) {
     const url = `http://${host}:${port}`;
     try {
       await window.portpilot.openExternal(url);
-      showToast(`Opening ${url}`, 'success');
+      showToast(t('Opening {url}', { url }), 'success');
     } catch (error) {
-      showToast(`Failed: ${error.message}`, 'error');
+      showToast(t('Failed: {error}', { error: error.message }), 'error');
     }
   } else {
-    showToast('No port detected for this app', 'error');
+    showToast(t('No port detected for this app'), 'error');
   }
 }
 
@@ -888,7 +891,7 @@ async function loadApps() {
       }
     }
   } catch (error) {
-    showToast('Failed to load apps: ' + error.message, 'error');
+    showToast(t('Failed to load apps: {error}', { error: error.message }), 'error');
   }
 }
 
@@ -929,7 +932,7 @@ function updateAppsCount() {
   }).length;
 
   if (countBadge) {
-    countBadge.textContent = `${state.apps.length} apps - ${runningCount} running`;
+    countBadge.textContent = tn(state.apps.length, '{n} app - {running} running', '{n} apps - {running} running', { running: runningCount });
   }
 
   _updateTrayMenu();
@@ -995,7 +998,7 @@ function renderApps() {
   if (window.PortPilotSidebar) window.PortPilotSidebar.render();
   if (state.apps.length === 0 && state.groups.length === 0) {
     dom.appsList.innerHTML = `<div class="empty-state">
-      No apps registered. Click "Add App" to register your first app.
+      ${t('No apps registered. Click "Add App" to register your first app.')}
     </div>`;
     return;
   }
@@ -1031,7 +1034,7 @@ function renderApps() {
 
   const totalVisible = favorites.length + ungroupedApps.length + Object.values(groupedApps).reduce((s, a) => s + a.length, 0);
   if (state.globalSearch && totalVisible === 0) {
-    dom.appsList.innerHTML = `<div class="empty-state">No apps match "${escapeHtml(state.globalSearch)}"</div>`;
+    dom.appsList.innerHTML = `<div class="empty-state">${t('No apps match "{q}"', { q: escapeHtml(state.globalSearch) })}</div>`;
     return;
   }
 
@@ -1043,7 +1046,7 @@ function renderApps() {
       <div class="app-section">
         <div class="section-header" data-act="toggleSection" data-section="favorites">
           <span class="section-toggle">${state.favoritesExpanded ? icon('chevron', 10) : '<span style="display:inline-block;transform:rotate(-90deg)">' + icon('chevron', 10) + '</span>'}</span>
-          <span class="section-title">${icon('star', 12)} Favorites</span>
+          <span class="section-title">${icon('star', 12)} ${t('Favorites')}</span>
           <span class="section-count">${favorites.length}</span>
         </div>
         <div class="section-apps ${state.favoritesExpanded ? '' : 'collapsed'}">
@@ -1066,16 +1069,16 @@ function renderApps() {
           <span class="section-title" data-act="toggleGroup" data-group="${group.id}">${escapeHtml(group.name)}</span>
           <span class="section-count">${apps.length}</span>
           <div class="section-actions">
-            <button class="btn-group-action" data-act="startGroup" data-group="${group.id}" title="Start all in group">${icon('play', 12)}</button>
-            <button class="btn-group-action" data-act="stopGroup" data-group="${group.id}" title="Stop all in group">${icon('stop', 12)}</button>
-            <button class="btn-group-action" data-act="openRenameGroupModal" data-group="${group.id}" title="Rename">${icon('edit', 12)}</button>
-            <button class="btn-group-action btn-group-delete" data-act="confirmDeleteGroup" data-group="${group.id}" title="Delete">${icon('kill', 12)}</button>
+            <button class="btn-group-action" data-act="startGroup" data-group="${group.id}" title="${t('Start all in group')}">${icon('play', 12)}</button>
+            <button class="btn-group-action" data-act="stopGroup" data-group="${group.id}" title="${t('Stop all in group')}">${icon('stop', 12)}</button>
+            <button class="btn-group-action" data-act="openRenameGroupModal" data-group="${group.id}" title="${t('Rename')}">${icon('edit', 12)}</button>
+            <button class="btn-group-action btn-group-delete" data-act="confirmDeleteGroup" data-group="${group.id}" title="${t('Delete')}">${icon('kill', 12)}</button>
           </div>
         </div>
         <div class="section-apps ${isExpanded ? '' : 'collapsed'}">
           ${apps.length > 0
             ? apps.map(app => renderAppTree(app, childrenByParent)).join('')
-            : `<div class="group-empty">${stripOn && state.apps.some(a => a.group === group.id) ? 'Everything here is running (see Now running)' : 'No apps in this group'}</div>`}
+            : `<div class="group-empty">${stripOn && state.apps.some(a => a.group === group.id) ? t('Everything here is running (see Now running)') : t('No apps in this group')}</div>`}
         </div>
       </div>
     `;
@@ -1087,7 +1090,7 @@ function renderApps() {
       <div class="app-section">
         <div class="section-header" data-act="toggleSection" data-section="others">
           <span class="section-toggle">${state.otherProjectsExpanded ? icon('chevron', 10) : '<span style="display:inline-block;transform:rotate(-90deg)">' + icon('chevron', 10) + '</span>'}</span>
-          <span class="section-title">${icon('folder', 12)} ${stripOn ? 'Other apps' : 'Other Projects'}</span>
+          <span class="section-title">${icon('folder', 12)} ${stripOn ? t('Other apps') : t('Other Projects')}</span>
           <span class="section-count">${ungroupedApps.length}</span>
         </div>
         <div class="section-apps ${state.otherProjectsExpanded ? '' : 'collapsed'}">
@@ -1190,14 +1193,14 @@ function renderAppCard(app, branchCount = 0) {
   const badges = [];
   if (reqs.docker) {
     const dockerReady = state.dockerRunning;
-    badges.push(`<span class="req-badge ${dockerReady ? '' : 'badge-warning'}" title="${dockerReady ? 'Docker running' : 'Click to start Docker'}" ${dockerReady ? '' : 'data-act="startDocker"'}>${icon('docker', 12)}</span>`);
+    badges.push(`<span class="req-badge ${dockerReady ? '' : 'badge-warning'}" title="${dockerReady ? t('Docker running') : t('Click to start Docker')}" ${dockerReady ? '' : 'data-act="startDocker"'}>${icon('docker', 12)}</span>`);
   }
   if (reqs.node) badges.push(`<span class="req-badge" title="Node.js">N</span>`);
   if (reqs.python) badges.push(`<span class="req-badge" title="Python">Py</span>`);
-  if (reqs.database) badges.push(`<span class="req-badge" title="Database">DB</span>`);
-  if (reqs.autoStart) badges.push(`<span class="req-badge" title="Auto-start">${icon('play', 10)}</span>`);
-  if (reqs.remote) badges.push(`<span class="req-badge" title="Remote">${icon('globe', 10)}</span>`);
-  if (app.reservePort) badges.push(`<span class="req-badge" title="Port ${app.preferredPort} reserved">R</span>`);
+  if (reqs.database) badges.push(`<span class="req-badge" title="${t('Database')}">DB</span>`);
+  if (reqs.autoStart) badges.push(`<span class="req-badge" title="${t('Auto-start')}">${icon('play', 10)}</span>`);
+  if (reqs.remote) badges.push(`<span class="req-badge" title="${t('Remote')}">${icon('globe', 10)}</span>`);
+  if (app.reservePort) badges.push(`<span class="req-badge" title="${t('Port {port} reserved', { port: app.preferredPort })}">R</span>`);
 
   const isSelected = state.selectedApps.has(app.id);
   const isActive = state.drawerAppId === app.id;
@@ -1210,11 +1213,11 @@ function renderAppCard(app, branchCount = 0) {
     actionsHtml = '';
   } else if (isRunning || starting) {
     actionsHtml = `
-      <button class="btn btn-small btn-secondary" data-act="openInBrowser" data-id="${app.id}" title="Open" ${starting ? 'disabled' : ''}>${icon('browser', 12)}</button>
-      ${managedRunning ? `<button class="btn btn-small btn-secondary" data-act="viewLogs" data-id="${app.id}" title="View logs">${icon('logs', 12)}</button>` : ''}
-      <button class="btn btn-small btn-danger" data-act="stopApp" data-id="${app.id}" data-confirm-key="stop-kill:${app.id}" title="Stop" ${starting ? 'disabled' : ''}>${icon('stop', 12)}</button>`;
+      <button class="btn btn-small btn-secondary" data-act="openInBrowser" data-id="${app.id}" title="${t('Open')}" ${starting ? 'disabled' : ''}>${icon('browser', 12)}</button>
+      ${managedRunning ? `<button class="btn btn-small btn-secondary" data-act="viewLogs" data-id="${app.id}" title="${t('View logs')}">${icon('logs', 12)}</button>` : ''}
+      <button class="btn btn-small btn-danger" data-act="stopApp" data-id="${app.id}" data-confirm-key="stop-kill:${app.id}" title="${t('Stop')}" ${starting ? 'disabled' : ''}>${icon('stop', 12)}</button>`;
   } else {
-    actionsHtml = `<button class="btn btn-small btn-success" data-act="startApp" data-id="${app.id}" title="Start">${icon('play', 12)}</button>`;
+    actionsHtml = `<button class="btn btn-small btn-success" data-act="startApp" data-id="${app.id}" title="${t('Start')}">${icon('play', 12)}</button>`;
   }
 
   return `
@@ -1225,25 +1228,25 @@ function renderAppCard(app, branchCount = 0) {
          tabindex="0"
          role="button"
          aria-haspopup="dialog"
-         aria-label="${escapeHtml(app.name)} — press Enter to open details"
+         aria-label="${t('{name} — press Enter to open details', { name: escapeHtml(app.name) })}"
          >
-      <span class="drag-handle" title="Drag to reorder" aria-hidden="true">${icon('grip', 14)}</span>
+      <span class="drag-handle" title="${t('Drag to reorder')}" aria-hidden="true">${icon('grip', 14)}</span>
       <input type="checkbox" class="app-checkbox"
              ${isSelected ? 'checked' : ''}
              data-change="toggleAppSelection"
              data-id="${app.id}"
-             aria-label="Select ${escapeHtml(app.name)}"
-             title="Select">
+             aria-label="${t('Select {name}', { name: escapeHtml(app.name) })}"
+             title="${t('Select')}">
       <div class="app-name-area">
         <button class="btn-star ${app.isFavorite ? 'starred' : ''}"
                 data-act="toggleFavorite" data-id="${app.id}"
-                title="${app.isFavorite ? 'Unfavorite' : 'Favorite'}">
+                title="${app.isFavorite ? t('Unfavorite') : t('Favorite')}">
           ${app.isFavorite ? icon('star', 14) : icon('star-outline', 14)}
         </button>
         <span class="app-name-text">${escapeHtml(app.name)}</span>
-        ${app.branch ? `<span class="branch-chip" style="--branch-color:${app.color}" title="Branch / worktree">${icon('branch', 11)}${escapeHtml(app.branch)}</span>` : ''}
-        ${branchCount > 0 ? `<span class="branch-count" title="${branchCount} branch${branchCount !== 1 ? 'es' : ''}">${icon('branch', 10)}${branchCount}</span>` : ''}
-        ${isStale ? `<span class="stale-badge" title="Worktree folder is gone - safe to remove">stale</span>` : ''}
+        ${app.branch ? `<span class="branch-chip" style="--branch-color:${app.color}" title="${t('Branch / worktree')}">${icon('branch', 11)}${escapeHtml(app.branch)}</span>` : ''}
+        ${branchCount > 0 ? `<span class="branch-count" title="${tn(branchCount, '{n} branch', '{n} branches')}">${icon('branch', 10)}${branchCount}</span>` : ''}
+        ${isStale ? `<span class="stale-badge" title="${t('Worktree folder is gone - safe to remove')}">${t('stale')}</span>` : ''}
         ${portHtml}
         ${countdownHtml}
         ${statsHtml}
@@ -1256,10 +1259,10 @@ function renderAppCard(app, branchCount = 0) {
         ${actionsHtml}
       </div>
       <div class="app-actions">
-        ${!isBranch ? `<button class="btn btn-small btn-secondary" data-act="addBranch" data-id="${app.id}" title="Add a branch / worktree">${icon('branch', 12)}</button>` : ''}
-        <button class="btn btn-small btn-secondary" data-act="openAppFolder" data-id="${app.id}" title="Open folder">${icon('folder', 12)}</button>
-        <button class="btn btn-small btn-secondary" data-act="editApp" data-id="${app.id}" title="Edit">${icon('edit', 12)}</button>
-        <button class="btn btn-small btn-secondary" data-act="deleteApp" data-id="${app.id}" title="Delete">${icon('trash', 12)}</button>
+        ${!isBranch ? `<button class="btn btn-small btn-secondary" data-act="addBranch" data-id="${app.id}" title="${t('Add a branch / worktree')}">${icon('branch', 12)}</button>` : ''}
+        <button class="btn btn-small btn-secondary" data-act="openAppFolder" data-id="${app.id}" title="${t('Open folder')}">${icon('folder', 12)}</button>
+        <button class="btn btn-small btn-secondary" data-act="editApp" data-id="${app.id}" title="${t('Edit')}">${icon('edit', 12)}</button>
+        <button class="btn btn-small btn-secondary" data-act="deleteApp" data-id="${app.id}" title="${t('Delete')}">${icon('trash', 12)}</button>
       </div>
       ${conflict ? renderConflictStrip(app, conflict) : ''}
     </div>
@@ -1307,7 +1310,7 @@ function renderConflictStrip(app, conflict, variant = 'row') {
     return `<button class="btn${size} ${cls}" data-act="${CONFLICT_ACT[a.id]}" data-id="${app.id}" data-port="${conflict.port}"${confirm} title="${escapeHtml(a.title)}">${escapeHtml(a.label)}</button>`;
   }).join('');
   return `
-    <div class="conflict-strip conflict-strip-${variant}" role="group" aria-label="Port conflict for ${escapeHtml(app.name)}">
+    <div class="conflict-strip conflict-strip-${variant}" role="group" aria-label="${t('Port conflict for {name}', { name: escapeHtml(app.name) })}">
       <span class="conflict-sentence"${d.title ? ` title="${escapeHtml(d.title)}"` : ''}><span class="conflict-glyph" aria-hidden="true">▲</span> ${escapeHtml(d.sentence)}</span>
       <span class="conflict-actions">${buttons}</span>
     </div>`;
@@ -1343,7 +1346,7 @@ function armButton(el) {
   if (el.classList.contains('is-armed')) return;
   el.dataset.idleHtml = el.innerHTML;
   el.classList.add('is-armed');
-  el.textContent = el.dataset.confirmLabel || 'Confirm kill?';
+  el.textContent = el.dataset.confirmLabel || t('Confirm kill?');
 }
 
 function disarmButton(el) {
@@ -1411,27 +1414,27 @@ async function startApp(appId, { confirmed = false } = {}) {
         return;
       }
 
-      showToast(`Stopping process on port ${app.preferredPort}...`, 'info');
+      showToast(t('Stopping process on port {port}...', { port: app.preferredPort }), 'info');
       const killResult = await window.portpilot.ports.kill(app.preferredPort);
       if (!killResult.success) {
-        showToast(`Failed to kill blocker: ${killResult.error}`, 'error');
+        showToast(t('Failed to kill blocker: {error}', { error: killResult.error }), 'error');
         return;
       }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
-  showToast(`Starting ${app.name}...`, 'success');
+  showToast(t('Starting {name}...', { name: app.name }), 'success');
   const result = await window.portpilot.process.start(app);
   if (result.success) {
-    showToast(`${app.name} started (PID: ${result.pid})`, 'success');
+    showToast(t('{name} started (PID: {pid})', { name: app.name, pid: result.pid }), 'success');
     if (app.preferredPort) {
       const delay = detectStartupDelay(app);
       startPortReadinessCheck(appId, app.preferredPort, delay);
     }
   } else if (!result.crashRaised) {
     // crashRaised: main already sent the crash toast (with Diagnose) for this one.
-    showToast(`Failed to start: ${result.error}`, 'error');
+    showToast(t('Failed to start: {error}', { error: result.error }), 'error');
   }
   await loadApps();
 }
@@ -1441,7 +1444,7 @@ async function startApp(appId, { confirmed = false } = {}) {
 async function stopApp(appId, { confirmed = false } = {}) {
   const result = await window.portpilot.process.stop(appId);
   if (result.success) {
-    showToast('App stopped', 'success');
+    showToast(t('App stopped'), 'success');
     await loadApps();
     return;
   }
@@ -1450,18 +1453,18 @@ async function stopApp(appId, { confirmed = false } = {}) {
 
   if (detected && detected.port) {
     if (!confirmed) {
-      showToast(`Not started by PortPilot - press Stop twice to kill the process on :${detected.port}`, 'info');
+      showToast(t('Not started by PortPilot - press Stop twice to kill the process on :{port}', { port: detected.port }), 'info');
       await loadApps();
       return;
     }
     const killResult = await window.portpilot.ports.kill(detected.port);
     if (killResult.success) {
-      showToast(`Killed process on port ${detected.port}`, 'success');
+      showToast(t('Killed process on port {port}', { port: detected.port }), 'success');
     } else {
-      showToast(`Failed to kill: ${killResult.error}`, 'error');
+      showToast(t('Failed to kill: {error}', { error: killResult.error }), 'error');
     }
   } else {
-    showToast('Failed to stop: ' + result.error, 'error');
+    showToast(t('Failed to stop: {error}', { error: result.error }), 'error');
   }
   await loadApps();
 }
@@ -1491,7 +1494,7 @@ function showConflictFor(app, blocker) {
   _announcedConflicts.add(window.PortPilotConflict.conflictKey(conflict)); // toasted below
   renderApps();
   if (state.drawerAppId === app.id) openAppDrawer(app.id);
-  showToast(`:${app.preferredPort} is in use - choose what to do on the ${app.name} row`, 'warning');
+  showToast(t(':{port} is in use - choose what to do on the {name} row', { port: app.preferredPort, name: app.name }), 'warning');
   fillFreePorts();
 }
 
@@ -1506,16 +1509,16 @@ async function startOnFreePort(appId) {
   const from = named || (app.preferredPort || 3000) + 1;
   const res = await window.portpilot.ports.findAvailable(from, from + 50);
   const freePort = res && res.port;
-  if (!freePort) { showToast('No free port found nearby', 'error'); return; }
+  if (!freePort) { showToast(t('No free port found nearby'), 'error'); return; }
 
-  showToast(`Starting ${app.name} on free port ${freePort}...`, 'success');
+  showToast(t('Starting {name} on free port {port}...', { name: app.name, port: freePort }), 'success');
   const result = await window.portpilot.process.start({ ...app, preferredPort: freePort });
   if (result.success) {
-    showToast(`${app.name} started on ${freePort} (PID ${result.pid})`, 'success');
+    showToast(t('{name} started on {port} (PID {pid})', { name: app.name, port: freePort, pid: result.pid }), 'success');
     startPortReadinessCheck(appId, freePort, detectStartupDelay(app));
   } else if (!result.crashRaised) {
     // crashRaised: main already sent the crash toast (with Diagnose) for this one.
-    showToast(`Failed to start: ${result.error}`, 'error');
+    showToast(t('Failed to start: {error}', { error: result.error }), 'error');
   }
   await loadApps();
 }
@@ -1538,11 +1541,11 @@ async function confirmDeleteApp() {
   if (!state.deleteAppId) return;
   const result = await window.portpilot.config.deleteApp(state.deleteAppId);
   if (result.success) {
-    showToast('App deleted', 'success');
+    showToast(t('App deleted'), 'success');
     closeDeleteConfirm();
     await loadApps();
   } else {
-    showToast('Failed to delete: ' + result.error, 'error');
+    showToast(t('Failed to delete: {error}', { error: result.error }), 'error');
   }
 }
 
@@ -1561,7 +1564,7 @@ async function toggleFavorite(appId) {
       renderApps();
     }
   } else {
-    showToast('Failed to toggle favorite: ' + result.error, 'error');
+    showToast(t('Failed to toggle favorite: {error}', { error: result.error }), 'error');
   }
 }
 
@@ -1596,7 +1599,7 @@ let _editingGroupId = null;
 
 function openNewGroupModal() {
   _editingGroupId = null;
-  document.getElementById('group-modal-title').textContent = 'New Group';
+  document.getElementById('group-modal-title').textContent = t('New Group');
   document.getElementById('group-name-input').value = '';
   renderGroupColorSwatches(null);
   document.getElementById('modal-group').classList.remove('hidden');
@@ -1608,8 +1611,8 @@ function openNewGroupModal() {
 // ports settle; a single toast summarises the result.
 async function startGroup(groupId) {
   const apps = state.apps.filter(a => a.group === groupId);
-  if (apps.length === 0) { showToast('No apps in this group', 'info'); return; }
-  showToast(`Starting ${apps.length} app(s)...`, 'success');
+  if (apps.length === 0) { showToast(t('No apps in this group'), 'info'); return; }
+  showToast(tn(apps.length, 'Starting {n} app...', 'Starting {n} apps...'), 'success');
   let started = 0;
   for (const app of apps) {
     const running = state.runningApps.find(r => r.id === app.id && r.running) || state.detectedApps[app.id];
@@ -1620,13 +1623,13 @@ async function startGroup(groupId) {
     } catch { /* keep going */ }
     await new Promise(r => setTimeout(r, 400));
   }
-  showToast(`Started ${started} app(s) in group`, started ? 'success' : 'info');
+  showToast(tn(started, 'Started {n} app in group', 'Started {n} apps in group'), started ? 'success' : 'info');
   await loadApps();
 }
 
 async function stopGroup(groupId) {
   const apps = state.apps.filter(a => a.group === groupId);
-  if (apps.length === 0) { showToast('No apps in this group', 'info'); return; }
+  if (apps.length === 0) { showToast(t('No apps in this group'), 'info'); return; }
   let stopped = 0;
   for (const app of apps) {
     try {
@@ -1634,7 +1637,7 @@ async function stopGroup(groupId) {
       if (res.success) stopped++;
     } catch { /* keep going */ }
   }
-  showToast(`Stopped ${stopped} app(s) in group`, stopped ? 'success' : 'info');
+  showToast(tn(stopped, 'Stopped {n} app in group', 'Stopped {n} apps in group'), stopped ? 'success' : 'info');
   await loadApps();
 }
 
@@ -1642,7 +1645,7 @@ function openRenameGroupModal(groupId) {
   const group = state.groups.find(g => g.id === groupId);
   if (!group) return;
   _editingGroupId = groupId;
-  document.getElementById('group-modal-title').textContent = 'Rename Group';
+  document.getElementById('group-modal-title').textContent = t('Rename Group');
   document.getElementById('group-name-input').value = group.name;
   renderGroupColorSwatches(group.color || GROUP_COLORS[0]);
   document.getElementById('modal-group').classList.remove('hidden');
@@ -1656,7 +1659,7 @@ function closeGroupModal() {
 
 async function saveGroupModal() {
   const name = document.getElementById('group-name-input').value.trim();
-  if (!name) { showToast('Group name is required', 'error'); return; }
+  if (!name) { showToast(t('Group name is required'), 'error'); return; }
 
   const color = document.getElementById('group-color-input')?.value || GROUP_COLORS[0];
   const groupConfig = { id: _editingGroupId || undefined, name, expanded: true, color };
@@ -1671,25 +1674,25 @@ async function saveGroupModal() {
     }
     closeGroupModal();
     renderApps();
-    showToast(`Group "${name}" ${_editingGroupId ? 'renamed' : 'created'}`, 'success');
+    showToast(_editingGroupId ? t('Group "{name}" renamed', { name }) : t('Group "{name}" created', { name }), 'success');
   } else {
-    showToast('Failed to save group: ' + result.error, 'error');
+    showToast(t('Failed to save group: {error}', { error: result.error }), 'error');
   }
 }
 
 async function confirmDeleteGroup(groupId) {
   const group = state.groups.find(g => g.id === groupId);
   if (!group) return;
-  if (!confirm(`Delete group "${group.name}"?\nApps in this group will move to Other Projects.`)) return;
+  if (!confirm(t('Delete group "{name}"?\nApps in this group will move to Other Projects.', { name: group.name }))) return;
 
   const result = await window.portpilot.config.deleteGroup(groupId);
   if (result.success) {
     state.groups = state.groups.filter(g => g.id !== groupId);
     state.apps = state.apps.map(app => app.group === groupId ? { ...app, group: null } : app);
     renderApps();
-    showToast(`Group "${group.name}" deleted`, 'success');
+    showToast(t('Group "{name}" deleted', { name: group.name }), 'success');
   } else {
-    showToast('Failed to delete group: ' + result.error, 'error');
+    showToast(t('Failed to delete group: {error}', { error: result.error }), 'error');
   }
 }
 
@@ -1715,18 +1718,18 @@ async function moveSelectedToGroup(groupId) {
   clearSelection();
   renderApps();
   const groupName = groupId
-    ? (state.groups.find(g => g.id === groupId)?.name || 'group')
-    : 'Other Projects';
-  showToast(`Apps moved to ${groupName}`, 'success');
+    ? (state.groups.find(g => g.id === groupId)?.name || t('group'))
+    : t('Other Projects');
+  showToast(t('Apps moved to {group}', { group: groupName }), 'success');
 }
 
 function updateGroupSelects() {
   const selSelect = document.getElementById('selection-group-select');
   if (selSelect) {
-    selSelect.innerHTML = '<option value="" disabled selected>Move to Group</option>';
+    selSelect.innerHTML = `<option value="" disabled selected>${t('Move to Group')}</option>`;
     const noneOpt = document.createElement('option');
     noneOpt.value = '';
-    noneOpt.textContent = 'Other Projects (no group)';
+    noneOpt.textContent = t('Other Projects (no group)');
     selSelect.appendChild(noneOpt);
     for (const group of state.groups) {
       const opt = document.createElement('option');
@@ -1766,7 +1769,7 @@ function openAppDrawer(appId) {
   const statusClass = rowState.state === 'crashed' ? 'error' : rowState.state;
   const statusWord = rowState.word + (rowState.reason ? ` · ${rowState.reason}` : '');
   const provenance = rowState.provenance;
-  const healthLabel = { healthy: 'Responding (2xx/3xx)', unhealthy: 'Not responding (error status)', down: 'No response' }[health];
+  const healthLabel = { healthy: t('Responding (2xx/3xx)'), unhealthy: t('Not responding (error status)'), down: t('No response') }[health];
 
   document.getElementById('app-drawer-status').className = `status-dot ${statusClass}`;
   document.getElementById('app-drawer-title').textContent = app.name;
@@ -1776,16 +1779,16 @@ function openAppDrawer(appId) {
     : '';
 
   const fields = [
-    field('Status', statusWord + (managedRunning && detected?.pid ? ` · PID ${detected.pid}` : '')),
-    isRunning ? field('Health', healthLabel || 'Checking...') : '',
-    field('Started by', provenance),
-    field('Branch', app.branch),
-    port ? field('Port', `:${port}${app.fallbackRange ? `  (fallback ${app.fallbackRange[0]}-${app.fallbackRange[1]})` : ''}`, true) : '',
-    field('Memory', details?.memory ? details.memory + ' MB' : ''),
-    field('Uptime', fmtUptime(details?.uptime)),
-    field('Command', app.command, true),
-    field('Directory', app.cwd, true),
-    field('Info', app.description),
+    field(t('Status'), statusWord + (managedRunning && detected?.pid ? ` · PID ${detected.pid}` : '')),
+    isRunning ? field(t('Health'), healthLabel || t('Checking...')) : '',
+    field(t('Started by'), provenance),
+    field(t('Branch'), app.branch),
+    port ? field(t('Port'), `:${port}${app.fallbackRange ? `  (${t('fallback {range}', { range: `${app.fallbackRange[0]}-${app.fallbackRange[1]}` })})` : ''}`, true) : '',
+    field(t('Memory'), details?.memory ? details.memory + ' MB' : ''),
+    field(t('Uptime'), fmtUptime(details?.uptime)),
+    field(t('Command'), app.command, true),
+    field(t('Directory'), app.cwd, true),
+    field(t('Info'), app.description),
   ].filter(Boolean).join('');
 
   // Primary action: Start XOR Stop (never both).
@@ -1793,28 +1796,28 @@ function openAppDrawer(appId) {
   if (conflict) {
     primary = renderConflictStrip(app, conflict, 'drawer');
   } else if (isRunning || starting) {
-    primary = `<button class="btn btn-danger" data-act="stopApp" data-id="${app.id}" data-confirm-key="stop-kill:${app.id}" ${starting ? 'disabled' : ''}>${icon('stop', 12)} Stop</button>`;
+    primary = `<button class="btn btn-danger" data-act="stopApp" data-id="${app.id}" data-confirm-key="stop-kill:${app.id}" ${starting ? 'disabled' : ''}>${icon('stop', 12)} ${t('Stop')}</button>`;
   } else {
-    primary = `<button class="btn btn-success" data-act="startApp" data-id="${app.id}">${icon('play', 12)} Start</button>`;
+    primary = `<button class="btn btn-success" data-act="startApp" data-id="${app.id}">${icon('play', 12)} ${t('Start')}</button>`;
   }
 
   const secondary = [
-    port ? `<button class="btn btn-secondary" data-act="openInBrowser" data-id="${app.id}">${icon('browser', 12)} Open</button>` : '',
-    (isRunning && port) ? `<button class="btn btn-secondary" data-act="shareApp" data-id="${app.id}" data-port="${port}" title="Open on your phone - needs the same Wi-Fi, and a dev command that listens on all interfaces (e.g. --host)">${icon('qr', 12)} Share</button>` : '',
-    managedRunning ? `<button class="btn btn-secondary" data-act="viewLogs" data-id="${app.id}">${icon('logs', 12)} Logs</button>` : '',
-    app.cwd ? `<button class="btn btn-secondary" data-act="openAppFolder" data-id="${app.id}">${icon('folder', 12)} Folder</button>` : '',
-    `<button class="btn btn-secondary" data-act="copyCmdPath" data-cmd="${escapeHtml(app.command)}">${icon('copy', 12)} Copy cmd</button>`,
-    !app.parentId ? `<button class="btn btn-secondary" data-act="addBranch" data-id="${app.id}">${icon('branch', 12)} Add branch</button>` : '',
-    !app.parentId ? `<button class="btn btn-secondary" data-act="detectWorktrees" data-id="${app.id}">${icon('branch', 12)} Add worktrees</button>` : '',
-    app.preferredPort ? `<button class="btn ${app.reservePort ? 'btn-warning' : 'btn-secondary'}" data-act="toggleReserve" data-id="${app.id}" title="Hold port ${app.preferredPort} while stopped so nothing else takes it">${app.reservePort ? 'Reserved ✓' : 'Reserve port'}</button>` : '',
-    `<button class="btn btn-secondary" data-act="editApp" data-id="${app.id}">${icon('edit', 12)} Edit</button>`,
-    `<button class="btn btn-secondary" data-act="deleteApp" data-id="${app.id}">${icon('trash', 12)} Delete</button>`,
+    port ? `<button class="btn btn-secondary" data-act="openInBrowser" data-id="${app.id}">${icon('browser', 12)} ${t('Open')}</button>` : '',
+    (isRunning && port) ? `<button class="btn btn-secondary" data-act="shareApp" data-id="${app.id}" data-port="${port}" title="${t('Open on your phone - needs the same Wi-Fi, and a dev command that listens on all interfaces (e.g. --host)')}">${icon('qr', 12)} ${t('Share')}</button>` : '',
+    managedRunning ? `<button class="btn btn-secondary" data-act="viewLogs" data-id="${app.id}">${icon('logs', 12)} ${t('Logs')}</button>` : '',
+    app.cwd ? `<button class="btn btn-secondary" data-act="openAppFolder" data-id="${app.id}">${icon('folder', 12)} ${t('Folder')}</button>` : '',
+    `<button class="btn btn-secondary" data-act="copyCmdPath" data-cmd="${escapeHtml(app.command)}">${icon('copy', 12)} ${t('Copy cmd')}</button>`,
+    !app.parentId ? `<button class="btn btn-secondary" data-act="addBranch" data-id="${app.id}">${icon('branch', 12)} ${t('Add branch')}</button>` : '',
+    !app.parentId ? `<button class="btn btn-secondary" data-act="detectWorktrees" data-id="${app.id}">${icon('branch', 12)} ${t('Add worktrees')}</button>` : '',
+    app.preferredPort ? `<button class="btn ${app.reservePort ? 'btn-warning' : 'btn-secondary'}" data-act="toggleReserve" data-id="${app.id}" title="${t('Hold port {port} while stopped so nothing else takes it', { port: app.preferredPort })}">${app.reservePort ? t('Reserved ✓') : t('Reserve port')}</button>` : '',
+    `<button class="btn btn-secondary" data-act="editApp" data-id="${app.id}">${icon('edit', 12)} ${t('Edit')}</button>`,
+    `<button class="btn btn-secondary" data-act="deleteApp" data-id="${app.id}">${icon('trash', 12)} ${t('Delete')}</button>`,
   ].filter(Boolean).join('');
 
   const stale = state.staleApps.has(app.id);
   const staleBanner = stale
-    ? `<div class="drawer-stale">Worktree folder is gone (<span class="mono">${escapeHtml(app.worktreePath || app.cwd || '')}</span>). Safe to remove this entry.
-         <button class="btn btn-danger" data-act="deleteApp" data-id="${app.id}">${icon('trash', 12)} Remove entry</button></div>`
+    ? `<div class="drawer-stale">${t('Worktree folder is gone ({path}). Safe to remove this entry.', { path: `<span class="mono">${escapeHtml(app.worktreePath || app.cwd || '')}</span>` })}
+         <button class="btn btn-danger" data-act="deleteApp" data-id="${app.id}">${icon('trash', 12)} ${t('Remove entry')}</button></div>`
     : '';
 
   document.getElementById('app-drawer-body').innerHTML = `
@@ -1842,26 +1845,26 @@ let worktreeCtx = null; // { parent, candidates }
 
 async function detectWorktrees(appId) {
   const res = await window.portpilot.worktrees.detect(appId);
-  if (!res.success) { showToast(res.error || 'Could not detect worktrees', 'error'); return; }
+  if (!res.success) { showToast(res.error || t('Could not detect worktrees'), 'error'); return; }
   const addable = res.candidates.filter(c => !c.registered);
-  if (res.candidates.length === 0) { showToast('No other worktrees found for this repo', 'info'); return; }
-  if (addable.length === 0) { showToast('All worktrees of this repo are already added', 'info'); return; }
+  if (res.candidates.length === 0) { showToast(t('No other worktrees found for this repo'), 'info'); return; }
+  if (addable.length === 0) { showToast(t('All worktrees of this repo are already added'), 'info'); return; }
   worktreeCtx = res;
   openWorktreesModal(res);
 }
 
 function openWorktreesModal(ctx) {
-  document.getElementById('worktrees-count').textContent = `${ctx.candidates.length} found`;
+  document.getElementById('worktrees-count').textContent = t('{n} found', { n: ctx.candidates.length });
   const list = document.getElementById('worktrees-list');
   list.innerHTML = ctx.candidates.map((c, i) => {
-    const swatch = c.color ? `<span class="wt-swatch" style="background:${c.color}" title="${c.colorSource === 'peacock' ? 'Peacock colour' : 'colour'}"></span>` : '';
+    const swatch = c.color ? `<span class="wt-swatch" style="background:${c.color}" title="${c.colorSource === 'peacock' ? t('Peacock colour') : t('colour')}"></span>` : '';
     return `
       <label class="discovery-item ${c.registered ? 'wt-registered' : ''}">
         <input type="checkbox" data-wt-index="${i}" ${c.registered ? 'disabled' : 'checked'}>
         ${swatch}
-        <span class="wt-branch">${c.branch ? escapeHtml(c.branch) : '(detached)'}</span>
+        <span class="wt-branch">${c.branch ? escapeHtml(c.branch) : t('(detached)')}</span>
         <span class="wt-path">${escapeHtml(c.path)}</span>
-        ${c.registered ? '<span class="wt-badge">already added</span>' : ''}
+        ${c.registered ? `<span class="wt-badge">${t('already added')}</span>` : ''}
       </label>`;
   }).join('');
   document.getElementById('modal-worktrees').classList.remove('hidden');
@@ -1876,7 +1879,7 @@ function closeWorktreesModal() {
 function copyText(text, msg) {
   if (!text) return;
   navigator.clipboard.writeText(text);
-  showToast(msg || 'Copied', 'success');
+  showToast(msg || t('Copied'), 'success');
 }
 
 async function openShareModal(appId, port) {
@@ -1886,7 +1889,7 @@ async function openShareModal(appId, port) {
   document.getElementById('modal-share').classList.remove('hidden');
 
   const res = await window.portpilot.net.shareInfo(port);
-  if (!res || !res.success) { showToast('Could not build share links', 'error'); return; }
+  if (!res || !res.success) { showToast(t('Could not build share links'), 'error'); return; }
 
   document.getElementById('share-local-url').value = res.localUrl || '';
   const lanRow = document.getElementById('share-lan-row');
@@ -1919,11 +1922,11 @@ async function toggleReserve(appId) {
     ? await window.portpilot.reserve.enable(appId)
     : await window.portpilot.reserve.disable(appId);
   if (res && res.success) {
-    showToast(enabling ? `Port ${app.preferredPort} reserved` : 'Port reservation removed', 'success');
+    showToast(enabling ? t('Port {port} reserved', { port: app.preferredPort }) : t('Port reservation removed'), 'success');
     await loadApps();
     if (state.drawerAppId === appId) openAppDrawer(appId);
   } else {
-    showToast((res && res.error) || 'Reservation failed', 'error');
+    showToast((res && res.error) || t('Reservation failed'), 'error');
   }
 }
 
@@ -1931,7 +1934,7 @@ async function confirmAddWorktrees() {
   if (!worktreeCtx) return;
   const checks = [...document.querySelectorAll('#worktrees-list input[type="checkbox"]:checked')];
   const picked = checks.map(c => worktreeCtx.candidates[Number(c.dataset.wtIndex)]).filter(Boolean);
-  if (picked.length === 0) { showToast('Select at least one worktree', 'info'); return; }
+  if (picked.length === 0) { showToast(t('Select at least one worktree'), 'info'); return; }
 
   const parent = worktreeCtx.parent;
   let added = 0;
@@ -1951,7 +1954,7 @@ async function confirmAddWorktrees() {
   }
   closeWorktreesModal();
   await loadApps();
-  showToast(`Added ${added} worktree${added !== 1 ? 's' : ''}`, 'success');
+  showToast(tn(added, 'Added {n} worktree', 'Added {n} worktrees'), 'success');
 }
 
 // Keyboard activation for app cards (Enter/Space toggles details), but only when
@@ -2007,7 +2010,7 @@ async function handleDrop(event) {
   const targetApp = state.apps.find(a => a.id === targetAppId);
 
   if (draggedApp.isFavorite !== targetApp.isFavorite) {
-    showToast('Cannot drag between Favorites and other sections', 'warning');
+    showToast(t('Cannot drag between Favorites and other sections'), 'warning');
     return;
   }
 
@@ -2023,9 +2026,9 @@ async function handleDrop(event) {
   const result = await window.portpilot.config.updateAppsOrder(state.apps.map(a => a.id));
   if (result.success) {
     renderApps();
-    showToast('App order saved', 'success');
+    showToast(t('App order saved'), 'success');
   } else {
-    showToast('Failed to save order: ' + result.error, 'error');
+    showToast(t('Failed to save order: {error}', { error: result.error }), 'error');
   }
 }
 
@@ -2040,18 +2043,18 @@ function handleDragEnd() {
 // ============ Delete All ============
 async function deleteAllInstead() {
   closeDeleteConfirm();
-  if (state.apps.length === 0) { showToast('No apps to delete', 'info'); return; }
+  if (state.apps.length === 0) { showToast(t('No apps to delete'), 'info'); return; }
 
   const result = await window.portpilot.config.deleteAllApps();
   if (result.success) {
-    showToast(`Deleted ${result.count} apps`, 'success');
+    showToast(tn(result.count, 'Deleted {n} app', 'Deleted {n} apps'), 'success');
     state.apps = [];
     state.selectedApps.clear();
     renderApps();
     updateAppsCount();
     updateSelectionToolbar();
   } else {
-    showToast('Failed to delete apps: ' + result.error, 'error');
+    showToast(t('Failed to delete apps: {error}', { error: result.error }), 'error');
   }
 }
 
@@ -2081,13 +2084,13 @@ function selectAllApps() {
 async function deleteSelected() {
   if (state.selectedApps.size === 0) return;
   const count = state.selectedApps.size;
-  if (!confirm(`Delete ${count} selected app${count !== 1 ? 's' : ''}?`)) return;
+  if (!confirm(tn(count, 'Delete {n} selected app?', 'Delete {n} selected apps?'))) return;
 
   for (const appId of state.selectedApps) {
     await window.portpilot.config.deleteApp(appId);
   }
   state.selectedApps.clear();
-  showToast(`Deleted ${count} app${count !== 1 ? 's' : ''}`, 'success');
+  showToast(tn(count, 'Deleted {n} app', 'Deleted {n} apps'), 'success');
   await loadApps();
   updateSelectionToolbar();
 }
@@ -2100,7 +2103,7 @@ async function favoriteSelected() {
     if (app && !app.isFavorite) await window.portpilot.config.toggleFavorite(appId);
   }
   state.selectedApps.clear();
-  showToast(`Marked ${count} as favorites`, 'success');
+  showToast(t('Marked {n} as favorites', { n: count }), 'success');
   await loadApps();
   updateSelectionToolbar();
 }
@@ -2113,7 +2116,7 @@ async function unfavoriteSelected() {
     if (app && app.isFavorite) await window.portpilot.config.toggleFavorite(appId);
   }
   state.selectedApps.clear();
-  showToast(`Unmarked ${count} from favorites`, 'success');
+  showToast(t('Unmarked {n} from favorites', { n: count }), 'success');
   await loadApps();
   updateSelectionToolbar();
 }
@@ -2123,7 +2126,7 @@ function updateSelectionToolbar() {
   const count = document.getElementById('selection-count');
   if (state.selectedApps.size > 0) {
     toolbar.classList.remove('hidden');
-    count.textContent = `${state.selectedApps.size} selected`;
+    count.textContent = t('{n} selected', { n: state.selectedApps.size });
   } else {
     toolbar.classList.add('hidden');
   }
@@ -2143,24 +2146,24 @@ function renderScanPaths(scanPaths) {
   const container = document.getElementById('scan-paths-list');
   if (!container) return;
   if (scanPaths.length === 0) {
-    container.innerHTML = '<div class="empty-state" style="padding: 8px; font-size: 0.78rem;">No scan paths configured.</div>';
+    container.innerHTML = `<div class="empty-state" style="padding: 8px; font-size: 0.78rem;">${t('No scan paths configured.')}</div>`;
     return;
   }
   container.innerHTML = scanPaths.map(path => `
     <div class="scan-path-item">
       <span class="path-text">${escapeHtml(path)}</span>
-      <button class="btn btn-small btn-danger" data-act="removeScanPath" data-path="${escapeHtml(path)}">Remove</button>
+      <button class="btn btn-small btn-danger" data-act="removeScanPath" data-path="${escapeHtml(path)}">${t('Remove')}</button>
     </div>
   `).join('');
 }
 
 async function addScanPath() {
-  const path = prompt('Enter directory path to scan (e.g., C:\\Projects):');
+  const path = prompt(t('Enter directory path to scan (e.g., C:\\Projects):'));
   if (!path) return;
   const result = await window.portpilot.discovery.addScanPath(path);
   if (result.success) {
     renderScanPaths(result.scanPaths);
-    showToast('Scan path added', 'success');
+    showToast(t('Scan path added'), 'success');
   } else {
     showToast(result.error, 'error');
   }
@@ -2170,21 +2173,21 @@ async function removeScanPath(path) {
   const result = await window.portpilot.discovery.removeScanPath(path);
   if (result.success) {
     renderScanPaths(result.scanPaths);
-    showToast('Scan path removed', 'success');
+    showToast(t('Scan path removed'), 'success');
   }
 }
 
 async function discoverProjects() {
-  showToast('Scanning for projects...', 'info');
+  showToast(t('Scanning for projects...'), 'info');
   const result = await window.portpilot.discovery.scan();
   if (result.success) {
     if (result.projects.length === 0) {
-      showToast(`No new projects found (scanned ${result.total} total)`, 'info');
+      showToast(t('No new projects found (scanned {total} total)', { total: result.total }), 'info');
     } else {
       showDiscoveriesModal(result.projects);
     }
   } else {
-    showToast(`Discovery failed: ${result.error}`, 'error');
+    showToast(t('Discovery failed: {error}', { error: result.error }), 'error');
   }
 }
 
@@ -2193,7 +2196,7 @@ function showDiscoveriesModal(projects) {
   const list = document.getElementById('discoveries-list');
   const count = document.getElementById('discoveries-count');
 
-  count.textContent = `${projects.length} found`;
+  count.textContent = t('{n} found', { n: projects.length });
   state.selectedProjects.clear();
 
   list.innerHTML = projects.map((proj, index) => {
@@ -2201,7 +2204,7 @@ function showDiscoveriesModal(projects) {
       <div class="discovery-item" data-index="${index}">
         <input type="checkbox" class="discovery-checkbox"
                data-change="toggleProjectSelection" data-index="${index}"
-               title="Select">
+               title="${t('Select')}">
         <div class="discovery-content">
           <div class="discovery-header">
             <h4>${escapeHtml(proj.name)}</h4>
@@ -2211,11 +2214,11 @@ function showDiscoveriesModal(projects) {
             </span>
           </div>
           <div class="discovery-details">
-            <div class="detail-row"><span class="label">Command:</span><code>${escapeHtml(proj.command || 'Not detected')}</code></div>
-            <div class="detail-row"><span class="label">Port:</span><code>${proj.port || 'Auto'}</code></div>
-            <div class="detail-row"><span class="label">Path:</span><code class="path-text">${escapeHtml(proj.path)}</code></div>
+            <div class="detail-row"><span class="label">${t('Command:')}</span><code>${escapeHtml(proj.command || t('Not detected'))}</code></div>
+            <div class="detail-row"><span class="label">${t('Port:')}</span><code>${proj.port || t('Auto')}</code></div>
+            <div class="detail-row"><span class="label">${t('Path:')}</span><code class="path-text">${escapeHtml(proj.path)}</code></div>
           </div>
-          <button class="btn btn-small btn-primary btn-add-discovery" data-act="addDiscoveredProject" data-index="${index}">Add</button>
+          <button class="btn btn-small btn-primary btn-add-discovery" data-act="addDiscoveredProject" data-index="${index}">${t('Add')}</button>
         </div>
       </div>
     `;
@@ -2246,10 +2249,10 @@ async function addDiscoveredProject(index) {
     if (item) {
       item.style.opacity = '0.5';
       const button = item.querySelector('.btn-add-discovery');
-      button.textContent = 'Added';
+      button.textContent = t('Added');
       button.disabled = true;
     }
-    showToast(`${project.name} added`, 'success');
+    showToast(t('{name} added', { name: project.name }), 'success');
     await loadApps();
   }
 }
@@ -2265,7 +2268,7 @@ async function addAllDiscoveries() {
       added++;
     }
   }
-  showToast(`Added ${added} project${added !== 1 ? 's' : ''}`, 'success');
+  showToast(tn(added, 'Added {n} project', 'Added {n} projects'), 'success');
   state.selectedProjects.clear();
   updateDiscoverySelectionButtons();
   setTimeout(() => {
@@ -2315,7 +2318,7 @@ function clearProjectSelection() {
 }
 
 async function addSelectedProjects() {
-  if (state.selectedProjects.size === 0) { showToast('No projects selected', 'info'); return; }
+  if (state.selectedProjects.size === 0) { showToast(t('No projects selected'), 'info'); return; }
   let added = 0;
   for (const index of Array.from(state.selectedProjects)) {
     const item = document.querySelector(`.discovery-item[data-index="${index}"]`);
@@ -2326,7 +2329,7 @@ async function addSelectedProjects() {
     }
   }
   state.selectedProjects.clear();
-  showToast(`Added ${added} selected project${added !== 1 ? 's' : ''}`, 'success');
+  showToast(tn(added, 'Added {n} selected project', 'Added {n} selected projects'), 'success');
   updateDiscoverySelectionButtons();
 }
 
@@ -2336,11 +2339,11 @@ function updateDiscoverySelectionButtons() {
   const addAllBtn = document.getElementById('btn-add-all-discoveries');
 
   if (state.selectedProjects.size > 0) {
-    if (selectAllBtn) { selectAllBtn.textContent = 'Clear Selection'; selectAllBtn.onclick = clearProjectSelection; }
+    if (selectAllBtn) { selectAllBtn.textContent = t('Clear Selection'); selectAllBtn.onclick = clearProjectSelection; }
     if (addSelectedBtn) addSelectedBtn.classList.remove('hidden');
     if (addAllBtn) addAllBtn.classList.add('hidden');
   } else {
-    if (selectAllBtn) { selectAllBtn.textContent = 'Select All'; selectAllBtn.onclick = selectAllProjects; }
+    if (selectAllBtn) { selectAllBtn.textContent = t('Select All'); selectAllBtn.onclick = selectAllProjects; }
     if (addSelectedBtn) addSelectedBtn.classList.add('hidden');
     if (addAllBtn) addAllBtn.classList.remove('hidden');
   }
@@ -2381,7 +2384,7 @@ function openAppModal(app = null, opts = {}) {
   const branchMode = !!branchOf || isBranchEdit; // show the Branch field
 
   document.getElementById('modal-title').textContent =
-    app ? (isBranchEdit ? 'Edit Branch' : 'Edit App') : (branchOf ? 'Add Branch' : 'Add App');
+    app ? (isBranchEdit ? t('Edit Branch') : t('Edit App')) : (branchOf ? t('Add Branch') : t('Add App'));
   document.getElementById('app-id').value = app?.id || '';
   // Parent linkage: an edit keeps the app's own parent; adding a branch links to branchOf.
   document.getElementById('app-parent-id').value = app?.parentId || branchOf?.id || '';
@@ -2405,7 +2408,7 @@ function openAppModal(app = null, opts = {}) {
   if (branchGroup) branchGroup.classList.toggle('hidden', !branchMode);
 
   const groupSelect = document.getElementById('app-group');
-  groupSelect.innerHTML = '<option value="">Other Projects (no group)</option>';
+  groupSelect.innerHTML = `<option value="">${t('Other Projects (no group)')}</option>`;
   for (const group of state.groups) {
     const opt = document.createElement('option');
     opt.value = group.id;
@@ -2423,7 +2426,7 @@ function addBranch(parentId) {
   const parent = state.apps.find(a => a.id === parentId);
   if (!parent) return;
   openAppModal(null, { branchOf: parent });
-  showToast('Point the working directory at the branch/worktree folder', 'info');
+  showToast(t('Point the working directory at the branch/worktree folder'), 'info');
 }
 
 function closeModal() {
@@ -2448,7 +2451,7 @@ async function findFreePort() {
       if (result.success && result.port) {
         if (!registeredPorts.has(result.port)) {
           portInput.value = result.port;
-          showToast(`Found free port: ${result.port}`, 'success');
+          showToast(t('Found free port: {port}', { port: result.port }), 'success');
           found = true;
           break;
         } else {
@@ -2459,21 +2462,21 @@ async function findFreePort() {
       }
     }
 
-    if (!found) showToast('No free port found', 'error');
+    if (!found) showToast(t('No free port found'), 'error');
   } catch (error) {
-    showToast('Error finding free port', 'error');
+    showToast(t('Error finding free port'), 'error');
   }
 }
 
 async function browseAndAutoDetect() {
   const btn = document.getElementById('btn-auto-detect');
   btn.disabled = true;
-  btn.textContent = 'Detecting...';
+  btn.textContent = t('Detecting...');
 
   try {
     const browseResult = await window.portpilot.browseDirectory();
     if (!browseResult.success) {
-      if (!browseResult.canceled) showToast('Failed to browse directory', 'error');
+      if (!browseResult.canceled) showToast(t('Failed to browse directory'), 'error');
       return;
     }
 
@@ -2481,7 +2484,7 @@ async function browseAndAutoDetect() {
     const detectResult = await window.portpilot.discovery.detectProject(dirPath);
 
     if (!detectResult.success) {
-      showToast(detectResult.error || 'No project detected', 'warning');
+      showToast(detectResult.error || t('No project detected'), 'warning');
       return;
     }
 
@@ -2497,13 +2500,13 @@ async function browseAndAutoDetect() {
       document.getElementById('app-fallback').value = `${port + 1}-${port + 10}`;
     }
 
-    const portNote = project.port ? '' : (project.suggestedPort ? ` (default port ${project.suggestedPort})` : '');
-    showToast(`Detected ${project.type} project: ${project.name}${portNote}`, 'success');
+    const portNote = project.port ? '' : (project.suggestedPort ? t(' (default port {port})', { port: project.suggestedPort }) : '');
+    showToast(t('Detected {type} project: {name}', { type: project.type, name: project.name }) + portNote, 'success');
   } catch (error) {
-    showToast('Error detecting project: ' + error.message, 'error');
+    showToast(t('Error detecting project: {error}', { error: error.message }), 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Browse & Auto-detect Project';
+    btn.textContent = t('Browse & Auto-detect Project');
   }
 }
 
@@ -2533,11 +2536,11 @@ async function handleAppSubmit(e) {
 
   const result = await window.portpilot.config.saveApp(appConfig);
   if (result.success) {
-    showToast('App saved', 'success');
+    showToast(t('App saved'), 'success');
     closeModal();
     await loadApps();
   } else {
-    showToast('Failed to save: ' + result.error, 'error');
+    showToast(t('Failed to save: {error}', { error: result.error }), 'error');
   }
 }
 
@@ -2561,6 +2564,7 @@ async function loadSettings() {
     document.getElementById('setting-history-max-mb').value = state.settings.historyMaxMB || 150;
     document.getElementById('setting-row-previews').checked = state.settings.rowPreviews !== false;
     document.getElementById('setting-home-layout').value = window.PortPilotNowStrip.homeLayoutOf(state.settings);
+    document.getElementById('setting-language').value = state.settings.language || 'auto';
     state.favoritesExpanded = result.settings.favoritesExpanded !== false;
     state.otherProjectsExpanded = result.settings.otherProjectsExpanded !== false;
     const pge = result.settings.portGroupExpanded;
@@ -2591,16 +2595,18 @@ async function saveSettings() {
     historyMaxRuns: Math.max(10, parseInt(document.getElementById('setting-history-max-runs').value) || 1000),
     historyMaxMB: Math.max(10, parseInt(document.getElementById('setting-history-max-mb').value) || 150),
     rowPreviews: document.getElementById('setting-row-previews').checked,
-    homeLayout: document.getElementById('setting-home-layout').value
+    homeLayout: document.getElementById('setting-home-layout').value,
+    language: document.getElementById('setting-language').value
   };
   await window.portpilot.config.updateSettings(settings);
+  if ((state.settings.language || 'auto') !== settings.language) { location.reload(); return; }
   const previewsChanged = (state.settings.rowPreviews !== false) !== settings.rowPreviews;
   const layoutChanged = window.PortPilotNowStrip.homeLayoutOf(state.settings) !== window.PortPilotNowStrip.homeLayoutOf(settings);
   state.settings = settings;
   setupAutoScan();   // apply new autoScan / scanInterval immediately
   if (previewsChanged && window.PortPilotRowThumbs) window.PortPilotRowThumbs.settingChanged();
   else if (layoutChanged) renderApps();
-  showToast('Settings saved', 'success');
+  showToast(t('Settings saved'), 'success');
 }
 
 async function exportConfig() {
@@ -2613,7 +2619,7 @@ async function exportConfig() {
     a.download = 'portpilot-config.json';
     a.click();
     URL.revokeObjectURL(url);
-    showToast('Config exported', 'success');
+    showToast(t('Config exported'), 'success');
   }
 }
 
@@ -2627,10 +2633,10 @@ async function importConfig() {
     const text = await file.text();
     const result = await window.portpilot.config.import(text);
     if (result.success) {
-      showToast('Config imported', 'success');
+      showToast(t('Config imported'), 'success');
       await loadApps();
     } else {
-      showToast('Import failed: ' + result.error, 'error');
+      showToast(t('Import failed: {error}', { error: result.error }), 'error');
     }
   };
   input.click();
@@ -2739,7 +2745,7 @@ function loadTheme() {
       if (!btn.dataset.theme) return;
       btn.dataset.choice = btn.dataset.theme;
       btn.removeAttribute('data-theme');
-      if (btn.dataset.choice === 'tokyonight') btn.textContent = 'Dark';
+      if (btn.dataset.choice === 'tokyonight') btn.textContent = t('Dark');
     });
     if (!V4_THEMES.includes(saved)) { setTheme('auto', false, false); return; }
   }
@@ -2764,7 +2770,7 @@ function setTheme(choice, showNotification = true, persist = true) {
   syncTitleBar();
 
   if (showNotification) {
-    showToast(`Theme: ${THEME_LABELS[choice] || choice}`, 'success');
+    showToast(t('Theme: {name}', { name: t(THEME_LABELS[choice] || choice) }), 'success');
   }
 }
 
@@ -2796,15 +2802,15 @@ async function toggleWebAgent(e) {
     const result = await window.portpilot.agent.start();
     if (result.success) {
       updateWebAgentUI(result);
-      showToast(`Web access on: ${result.url}`, 'success');
+      showToast(t('Web access on: {url}', { url: result.url }), 'success');
     } else {
       e.target.checked = false;
-      showToast('Failed to enable web access: ' + result.error, 'error');
+      showToast(t('Failed to enable web access: {error}', { error: result.error }), 'error');
     }
   } else {
     await window.portpilot.agent.stop();
     updateWebAgentUI(null);
-    showToast('Web access disabled', 'info');
+    showToast(t('Web access disabled'), 'info');
   }
 }
 
@@ -2815,7 +2821,7 @@ let _logsTimer = null;
 async function viewLogs(appId) {
   _logsAppId = appId;
   const app = state.apps.find(a => a.id === appId);
-  document.getElementById('logs-app-name').textContent = app ? app.name : 'App';
+  document.getElementById('logs-app-name').textContent = app ? app.name : t('App');
   document.getElementById('modal-logs').classList.remove('hidden');
   await refreshLogs();
   if (_logsTimer) clearInterval(_logsTimer);
@@ -2831,7 +2837,7 @@ async function refreshLogs() {
     const result = await window.portpilot.process.logs(_logsAppId);
     if (result.success) {
       const autoscroll = document.getElementById('logs-autoscroll')?.checked !== false;
-      out.textContent = result.stdout && result.stdout.trim() ? result.stdout : '(no stdout yet)';
+      out.textContent = result.stdout && result.stdout.trim() ? result.stdout : t('(no stdout yet)');
       err.textContent = result.stderr || '';
       errSection.style.display = (result.stderr && result.stderr.trim()) ? '' : 'none';
       if (autoscroll) {
@@ -2839,11 +2845,11 @@ async function refreshLogs() {
         err.scrollTop = err.scrollHeight;
       }
     } else {
-      out.textContent = 'No logs available - this app was not started by PortPilot, or it has exited.';
+      out.textContent = t('No logs available - this app was not started by PortPilot, or it has exited.');
       errSection.style.display = 'none';
     }
   } catch (e) {
-    out.textContent = 'Failed to read logs: ' + e.message;
+    out.textContent = t('Failed to read logs: {error}', { error: e.message });
   }
 }
 
@@ -2858,7 +2864,7 @@ function copyLogs() {
   const err = document.getElementById('logs-stderr').textContent;
   const text = [out, (err && err.trim()) ? '\n--- stderr ---\n' + err : ''].join('');
   navigator.clipboard.writeText(text);
-  showToast('Logs copied', 'success');
+  showToast(t('Logs copied'), 'success');
 }
 
 // ============ Utilities ============
@@ -2903,7 +2909,7 @@ function showCrashToast(p) {
   const dismiss = () => toast.remove();
 
   const head = el('div', 'crash-toast-head');
-  head.appendChild(el('span', 'crash-toast-title', p.title || `${p.name} crashed`));
+  head.appendChild(el('span', 'crash-toast-title', p.title || t('{name} crashed', { name: p.name })));
   if (p.meta) head.appendChild(el('span', 'crash-toast-meta', p.meta));
   toast.appendChild(head);
 
@@ -2923,25 +2929,25 @@ function showCrashToast(p) {
     actions.appendChild(b);
     return b;
   };
-  button('Restart', '', () => { dismiss(); window.startApp(p.appId); });
-  button('Logs', '', () => viewLogs(p.appId));
-  button('Diagnose', '', () => window.openDiagnose && window.openDiagnose(p.appId, p.name), 'Read-only Claude diagnosis of this crash, shown here');
+  button(t('Restart'), '', () => { dismiss(); window.startApp(p.appId); });
+  button(t('Logs'), '', () => viewLogs(p.appId));
+  button(t('Diagnose'), '', () => window.openDiagnose && window.openDiagnose(p.appId, p.name), t('Read-only Claude diagnosis of this crash, shown here'));
   if (p.session && p.session.id) {
-    const why = { owner: 'the session that started it', folder: 'a session in its folder', recent: 'the most recent session' }[p.session.reason] || 'a live session';
-    const ask = button(`Ask Claude (${p.session.short})`, 'primary', async () => {
+    const why = { owner: t('the session that started it'), folder: t('a session in its folder'), recent: t('the most recent session') }[p.session.reason] || t('a live session');
+    const ask = button(t('Ask Claude ({session})', { session: p.session.short }), 'primary', async () => {
       ask.disabled = true;
       const res = await window.portpilot.crash.askClaude(p.appId, p.session.id)
         .catch((e) => ({ success: false, error: e.message }));
       if (res && res.success) {
-        ask.textContent = `Sent to ${res.short}`;
+        ask.textContent = t('Sent to {session}', { session: res.short });
         setTimeout(dismiss, 2500);
       } else {
         ask.remove();
-        showToast((res && res.error) || 'Could not reach Claude', 'error');
+        showToast((res && res.error) || t('Could not reach Claude'), 'error');
       }
-    }, `Hand this crash to ${why}`);
+    }, t('Hand this crash to {who}', { who: why }));
   }
-  button('Dismiss', 'ghost', dismiss);
+  button(t('Dismiss'), 'ghost', dismiss);
   toast.appendChild(actions);
 
   dom.toastContainer.appendChild(toast);
@@ -2950,7 +2956,7 @@ function showCrashToast(p) {
 async function openExternal(url) {
   if (window.portpilot && window.portpilot.openExternal) {
     const result = await window.portpilot.openExternal(url);
-    if (!result.success) throw new Error(result.error || 'Unknown error');
+    if (!result.success) throw new Error(result.error || t('Unknown error'));
   } else {
     window.open(url, '_blank');
   }

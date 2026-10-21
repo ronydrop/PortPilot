@@ -23,6 +23,9 @@
   // first click. A second click inside the window runs the action.
   const CONFIRM_MS = 3000;
 
+  // Shown text goes through the app's translator (core/i18n.js) when it is installed; everywhere else it stays English.
+  const tr = (s, v) => (globalThis.PortPilotI18n ? globalThis.PortPilotI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m)));
+
   function statusApi() {
     if (typeof module !== 'undefined' && module.exports) return require('./status');
     return root && root.PortPilotStatus;
@@ -32,10 +35,10 @@
   function fmtAge(seconds) {
     const s = Number(seconds);
     if (!Number.isFinite(s) || s < 0) return '';
-    if (s < 60) return 'just now';
-    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-    return `${Math.floor(s / 86400)}d ago`;
+    if (s < 60) return tr('just now');
+    if (s < 3600) return tr('{n}m ago', { n: Math.floor(s / 60) });
+    if (s < 86400) return tr('{n}h ago', { n: Math.floor(s / 3600) });
+    return tr('{n}d ago', { n: Math.floor(s / 86400) });
   }
 
   /**
@@ -59,7 +62,7 @@
     const holder = o.holder || {};
     const holderApp = o.holderApp && o.holderApp.name ? o.holderApp : null;
     const kind = holderApp ? 'managed' : 'unmanaged';
-    const proc = holder.processName || 'an unknown process';
+    const proc = holder.processName || tr('an unknown process');
     const holderName = holderApp ? holderApp.name : proc;
 
     const S = statusApi();
@@ -70,35 +73,35 @@
     if (holderApp) details.push(proc);
     if (holder.pid != null) details.push(`PID ${holder.pid}`);
     const age = fmtAge(holder.uptime);
-    if (age) details.push(`started ${age}`);
-    if (known) details.push(`started by ${prov.word}`);
-    else if (!holderApp) details.push('not managed');
+    if (age) details.push(tr('started {age}', { age }));
+    if (known) details.push(tr('started by {who}', { who: prov.word }));
+    else if (!holderApp) details.push(tr('not managed'));
 
-    const sentence = `:${port} is held by ${holderName}` + (details.length ? ` (${details.join(', ')})` : '');
+    const sentence = tr(':{port} is held by {holder}', { port, holder: holderName }) + (details.length ? ` (${details.join(', ')})` : '');
     const title = known ? prov.title : '';
 
     const freePort = Number(o.freePort) || null;
-    const appName = o.app && o.app.name ? o.app.name : 'the app';
+    const appName = o.app && o.app.name ? o.app.name : tr('the app');
     const actions = [
       {
         id: 'useFreePort',
-        label: freePort ? `Use :${freePort} instead` : 'Use next free port',
-        title: `Start ${appName} on ${freePort ? `:${freePort}` : 'the next free port'} for this run. The saved port stays :${port}.`,
+        label: freePort ? tr('Use :{port} instead', { port: freePort }) : tr('Use next free port'),
+        title: tr('Start {app} on {target} for this run. The saved port stays :{port}.', { app: appName, target: freePort ? `:${freePort}` : tr('the next free port'), port }),
         destructive: false,
         recommended: true,
       },
       {
         id: 'killAndStart',
-        label: holderApp ? `Stop ${holderApp.name} & start` : 'Kill & start',
-        title: `End ${holderName}${holder.pid != null ? ` (PID ${holder.pid})` : ''}, then start ${appName} on :${port}`,
-        confirmLabel: holderApp ? 'Confirm stop?' : 'Confirm kill?',
+        label: holderApp ? tr('Stop {name} & start', { name: holderApp.name }) : tr('Kill & start'),
+        title: tr('End {holder}, then start {app} on :{port}', { holder: holderName + (holder.pid != null ? ` (PID ${holder.pid})` : ''), app: appName, port }),
+        confirmLabel: holderApp ? tr('Confirm stop?') : tr('Confirm kill?'),
         destructive: true,
         recommended: false,
       },
       {
         id: 'showProcess',
-        label: 'Show process',
-        title: `Find :${port} in the Ports list`,
+        label: tr('Show process'),
+        title: tr('Find :{port} in the Ports list', { port }),
         destructive: false,
         recommended: false,
       },
@@ -133,10 +136,10 @@
     if (fresh.length === 1) {
       const c = fresh[0];
       const h = c.occupiedBy || {};
-      message = `Port ${c.port} blocked for ${c.appName} by ${h.processName || 'Unknown'}` +
+      message = tr('Port {port} blocked for {app} by {holder}', { port: c.port, app: c.appName, holder: h.processName || tr('Unknown') }) +
         (h.pid != null ? ` (PID ${h.pid})` : '');
     } else if (fresh.length > 1) {
-      message = `${fresh.length} port conflicts - see the marked rows`;
+      message = tr('{n} port conflicts - see the marked rows', { n: fresh.length });
     }
     return { keys, message };
   }

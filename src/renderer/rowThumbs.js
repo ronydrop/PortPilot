@@ -40,7 +40,7 @@
     const url = cur && portMatches(app.id, cur) && cache.get(cur.id);
     if (!url) return '';
     // role=img + aria-label names the whole control; tabindex lets the keyboard open the large preview.
-    const label = `Page preview of ${escapeHtml(app.name)}, hover or focus to enlarge`;
+    const label = t('Page preview of {name}, hover or focus to enlarge', { name: escapeHtml(app.name) });
     return `<span class="row-thumb" role="img" tabindex="0" aria-label="${label}" data-app="${escapeHtml(app.id)}"><img src="${url}" alt="" width="${W}" height="${H}" decoding="sync"></span>`;
   }
 

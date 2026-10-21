@@ -161,6 +161,14 @@
         </div>
         <div class="settings-section">
           <h3>Preferences</h3>
+          <label class="setting-row" id="setting-language-row">
+            <span>Language</span>
+            <select id="setting-language" class="btn btn-small btn-secondary">
+              <option value="auto">Automatic (system)</option>
+              <option value="en">English</option>
+              <option value="pt-BR">Português (Brasil)</option>
+            </select>
+          </label>
           <label class="setting-row">
             <span>Auto-scan on startup</span>
             <input type="checkbox" id="setting-autoscan" checked>
@@ -506,6 +514,8 @@
     <div id="toast-container"></div>
   </div>
 
+  <script src="../core/i18n.js"></script>
+  <script src="../core/locales/pt-BR.js"></script>
   <script src="../core/status.js"></script>
   <script src="../core/conflict.js"></script>
   <script src="../core/runView.js"></script>

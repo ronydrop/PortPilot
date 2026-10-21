@@ -34,9 +34,10 @@
     const glyph = it.id === 'attention' ? TRIANGLE(14) : icon(ICONS[it.id], 14);
     const on = it.id === activeId;
     const num = it.count === null ? '' : `<span class="v4-nav-count">${it.count}</span>`;
-    const label = it.count === null ? it.label : `${it.label}, ${it.count}`;
+    const name = t(it.label);
+    const label = it.count === null ? name : `${name}, ${it.count}`;
     return `<button type="button" class="v4-nav-item${on ? ' on' : ''}" data-section="${it.id}"${it.tone ? ` data-tone="${it.tone}"` : ''} aria-label="${label}"${on ? ' aria-current="page"' : ''}>
-      <span class="v4-nav-glyph" aria-hidden="true">${glyph}</span><span class="v4-nav-label">${it.label}</span>${num}
+      <span class="v4-nav-glyph" aria-hidden="true">${glyph}</span><span class="v4-nav-label">${name}</span>${num}
     </button>`;
   }
 
@@ -49,8 +50,8 @@
       <div class="v4-brand"><svg class="v4-brand-mark" viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="15" class="v4-logo-tile"/><rect x="16" y="13" width="9" height="39" rx="4.5" class="v4-logo-p"/><circle cx="33.5" cy="27.5" r="11" fill="none" stroke-width="9" class="v4-logo-p-ring"/><circle cx="33.5" cy="27.5" r="4.5" class="v4-logo-light"/></svg><span class="v4-brand-name">PortPilot</span></div>
       <div class="v4-nav-list">${M.items(counts()).map((it) => itemHtml(it, activeId)).join('')}</div>
       <div class="v4-nav-foot">
-        <button type="button" class="v4-nav-item" data-section="palette" aria-label="Search or run a command"><span class="v4-nav-glyph" aria-hidden="true">${icon('search', 14)}</span><span class="v4-nav-label">Search or run</span><kbd class="v4-kbd">Ctrl K</kbd></button>
-        <button type="button" class="v4-nav-item" data-section="settings" aria-label="Settings"><span class="v4-nav-glyph" aria-hidden="true">${icon('gear', 14)}</span><span class="v4-nav-label">Settings</span></button>
+        <button type="button" class="v4-nav-item" data-section="palette" aria-label="${t('Search or run a command')}"><span class="v4-nav-glyph" aria-hidden="true">${icon('search', 14)}</span><span class="v4-nav-label">${t('Search or run')}</span><kbd class="v4-kbd">Ctrl K</kbd></button>
+        <button type="button" class="v4-nav-item" data-section="settings" aria-label="${t('Settings')}"><span class="v4-nav-glyph" aria-hidden="true">${icon('gear', 14)}</span><span class="v4-nav-label">${t('Settings')}</span></button>
       </div>`;
   }
 

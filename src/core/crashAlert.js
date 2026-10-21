@@ -10,6 +10,9 @@
  */
 const { shortSession } = require('./status');
 
+// Shown text goes through the app's translator (core/i18n.js) when main.js has installed it.
+const tr = (s, v) => (globalThis.PortPilotI18n ? globalThis.PortPilotI18n.t(s, v) : s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? String(v[k]) : m)));
+
 const REPEAT_WINDOW_MS = 5 * 60 * 1000;
 const TAIL_LINE_COUNT = 3;
 const TAIL_LINE_CHARS = 160;
@@ -57,9 +60,9 @@ function createCrashHistory(windowMs = REPEAT_WINDOW_MS) {
 /** The toast payload main.js sends the renderer on its `crash-toast` channel. */
 function buildCrashAlert({ id, name, code = null, port = null, errorTail = null, count = 1, session = null, at = Date.now() }) {
   const title = count > 1
-    ? `${name} crashed ${count}x in 5m`
-    : `${name} crashed`;
-  const meta = [port ? `:${port}` : null, code != null ? `exit ${code}` : null].filter(Boolean).join(' · ');
+    ? tr('{name} crashed {count}x in 5m', { name, count })
+    : tr('{name} crashed', { name });
+  const meta = [port ? `:${port}` : null, code != null ? tr('exit {code}', { code }) : null].filter(Boolean).join(' · ');
   return {
     appId: id,
     name,
