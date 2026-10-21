@@ -232,6 +232,12 @@ function getProcessDetailsUnix(pid, port) {
   });
 }
 
+// Path evidence must end where the path does: C:\p\shop is not inside C:\p\shop-admin\server.js.
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const hasPath = (text, dir) => new RegExp(`${escapeRe(dir.replace(/[\\/]+$/, ''))}(?=$|[\\\\/"'\\s])`).test(text);
+const hasFolder = (text, name) => !!name && new RegExp(`(^|[\\\\/"'\\s])${escapeRe(name)}(?=$|[\\\\/"'\\s])`).test(text);
+const hasWord = (text, word) => new RegExp(`(^|[^a-z0-9])${escapeRe(word)}(?=$|[^a-z0-9])`).test(text);
+
 /**
  * Match scanned ports to registered apps by analyzing command line and working directory
  * @param {Array} ports - Scanned port info
@@ -291,9 +297,9 @@ function matchPortsToApps(ports, apps, ownedPids = {}) {
 
       for (const binding of allBindings) {
         const cmdLower = (binding.commandLine || '').toLowerCase();
-        const cwdInCmd = cmdLower.includes(cwdWithForwardSlash) ||
-                         cmdLower.includes(cwdWithBackSlash) ||
-                         cmdLower.includes(normalizedCwd);
+        const cwdInCmd = hasPath(cmdLower, cwdWithForwardSlash) ||
+                         hasPath(cmdLower, cwdWithBackSlash) ||
+                         hasPath(cmdLower, normalizedCwd);
 
         if (cwdInCmd) {
           // High-confidence match found
@@ -339,15 +345,15 @@ function matchPortsToApps(ports, apps, ownedPids = {}) {
     if (app.cwd) {
       const normalizedCwd = path.normalize(app.cwd).toLowerCase();
       const cwdFolderName = path.basename(normalizedCwd);
-      cwdMatch = cmdLower.includes(normalizedCwd) ||
-                 cmdLower.includes(normalizedCwd.replace(/\\/g, '/')) ||
-                 cmdLower.includes(cwdFolderName);
+      cwdMatch = hasPath(cmdLower, normalizedCwd) ||
+                 hasPath(cmdLower, normalizedCwd.replace(/\\/g, '/')) ||
+                 hasFolder(cmdLower, cwdFolderName);
     }
 
     // Check for strong app name evidence in command or process
     const strongAppNameMatch =
-      cmdLower.includes(appNameLower) ||
-      appKeywords.some(keyword => cmdLower.includes(keyword) || processLower.includes(keyword));
+      hasWord(cmdLower, appNameLower) ||
+      appKeywords.some(keyword => hasWord(cmdLower, keyword) || hasWord(processLower, keyword));
 
     // STRICT MATCHING: Require CWD match OR strong app name match
     // Don't match just because it's a Node.js process

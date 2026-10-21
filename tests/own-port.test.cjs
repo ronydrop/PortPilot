@@ -36,6 +36,27 @@ t('a foreign holder is still a conflict even when the app owns other pids', () =
   assert.equal(unknownConflicts[0].occupiedBy.pid, 700);
 });
 
+t('a folder that prefixes its neighbour (modculture vs modculture-app) does not claim the neighbour\'s server', () => {
+  const site = { id: 'site', name: 'Mod Culture Site', cwd: 'C:\\p\\modculture', preferredPort: 5205 };
+  const adminServer = { port: 3102, pid: 710, processName: 'node.exe', address: '127.0.0.1:3102', commandLine: '"node" "c:\\p\\modculture-app\\node_modules\\.bin\\..\\vite\\bin\\vite.js" --port 3102' };
+  const { matches } = matchPortsToApps([adminServer], [site]);
+  assert.equal(matches.site, undefined);
+});
+
+t('the folder\'s own server still matches by path', () => {
+  const site = { id: 'site', name: 'Mod Culture Site', cwd: 'C:\\p\\modculture' };
+  const siteServer = { port: 5205, pid: 711, processName: 'node.exe', address: '127.0.0.1:5205', commandLine: 'node c:\\p\\modculture\\node_modules\\vite\\bin\\vite.js' };
+  assert.equal(matchPortsToApps([siteServer], [site]).matches.site.port, 5205);
+});
+
+t('a preferredPort holder from the neighbour folder is a conflict, not the app', () => {
+  const site = { id: 'site', name: 'Mod Culture Site', cwd: 'C:\\p\\modculture', preferredPort: 3102 };
+  const adminServer = { port: 3102, pid: 712, processName: 'node.exe', address: '127.0.0.1:3102', commandLine: 'node c:\\p\\modculture-app\\x.js' };
+  const { matches, unknownConflicts } = matchPortsToApps([adminServer], [site]);
+  assert.equal(matches.site, undefined);
+  assert.equal(unknownConflicts.length, 1);
+});
+
 t('an owned match is not overwritten by a later cwd match on another port', () => {
   const other = { port: 5002, pid: 701, processName: 'node.exe', address: '127.0.0.1:5002', commandLine: 'node c:\\work\\zz-demo-1\\x.js' };
   const { matches } = matchPortsToApps([other, listener], [shop], { app_shop: new Set([700]) });

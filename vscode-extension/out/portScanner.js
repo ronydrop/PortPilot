@@ -227,6 +227,11 @@ async function computeRunning(apps, activePorts) {
 // from other projects (a Brave profile under a scratchpad, a VS Code extension host). They are
 // never the app's own server, so command-line evidence from them proves nothing.
 const NOT_A_SERVER = /^(brave|chrome|chromium|msedge|firefox|opera|vivaldi|code|cursor|windsurf|claude)\b/i;
+// Path evidence must end where the path does: C:\p\shop is not inside C:\p\shop-admin\server.js.
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const hasPath = (text, dir) => new RegExp(`${escapeRe(dir.replace(/[\\/]+$/, ''))}(?=$|[\\\\/"'\\s])`).test(text);
+const hasFolder = (text, name) => new RegExp(`(^|[\\\\/"'\\s])${escapeRe(name)}(?=$|[\\\\/"'\\s])`).test(text);
+const hasWord = (text, word) => new RegExp(`(^|[^a-z0-9])${escapeRe(word)}(?=$|[^a-z0-9])`).test(text);
 /** The pure matcher: `ports` already carry their `commandLine`. */
 function matchRunning(apps, ports) {
     const matched = new Set();
@@ -241,7 +246,7 @@ function matchRunning(apps, ports) {
             if (matched.has(p.port) || NOT_A_SERVER.test(p.processName))
                 continue;
             const cl = p.commandLine.toLowerCase();
-            if (cl && (cl.includes(cwd) || cl.includes(cwdAlt))) {
+            if (cl && (hasPath(cl, cwd) || hasPath(cl, cwdAlt))) {
                 result.set(app.id, p);
                 matched.add(p.port);
                 break;
@@ -264,12 +269,12 @@ function matchRunning(apps, ports) {
         if (result.has(app.id) || !app.cwd)
             continue;
         const folder = app.cwd.toLowerCase().split(/[\\/]/).filter(Boolean).pop() || '';
-        const keywords = [folder, ...app.name.toLowerCase().split(/[^a-z0-9]+/)].filter(k => k.length > 3);
+        const words = app.name.toLowerCase().split(/[^a-z0-9]+/).filter(k => k.length > 3);
         for (const p of ports) {
             if (matched.has(p.port) || NOT_A_SERVER.test(p.processName))
                 continue;
             const cl = p.commandLine.toLowerCase();
-            if (cl && keywords.some(k => cl.includes(k))) {
+            if (cl && ((folder.length > 3 && hasFolder(cl, folder)) || words.some(k => hasWord(cl, k)))) {
                 result.set(app.id, p);
                 matched.add(p.port);
                 break;

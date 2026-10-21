@@ -45,6 +45,25 @@ for (const [label, matchRunning] of Object.entries(impls)) {
   const both = matchRunning([roofing, hawk], [hawkServer, roofingServer]);
   assert.strictEqual(both.get('g') && both.get('g').port, 3420, `${label}: glancehawk-web keeps its own port`);
   assert.strictEqual(both.get('r') && both.get('r').port, 4577, `${label}: roofing-clone is not given glancehawk's port`);
+
+  // One project folder is a prefix of its neighbour's: C:\p\modculture vs C:\p\modculture-app. The
+  // neighbour's admin server must go to its own app, and the site (not running) reads stopped.
+  const site = { id: 'site', name: 'Mod Culture Site', cwd: 'C:\\p\\modculture', preferredPort: 5205 };
+  const admin = { id: 'admin', name: 'Mod Culture Admin', cwd: 'C:\\p\\modculture-app\\apps\\admin', preferredPort: 3102 };
+  const adminServer = {
+    port: 3102, pid: 7, processName: 'node.exe',
+    commandLine: '"node" "C:\\p\\modculture-app\\node_modules\\.bin\\..\\vite\\bin\\vite.js" --host 127.0.0.1 --port 3102',
+  };
+  const pair = matchRunning([site, admin], [adminServer]);
+  assert.strictEqual(pair.has('site'), false, `${label}: modculture is not running because modculture-app is`);
+  assert.strictEqual(pair.get('admin') && pair.get('admin').port, 3102, `${label}: the admin server stays with Mod Culture Admin`);
+  assert.strictEqual(matchRunning([site], [adminServer]).has('site'), false, `${label}: no keyword fallback across the folder boundary`);
+
+  // The real folder still matches, with a trailing separator or the path at the end of the line.
+  const siteServer = { port: 5205, pid: 8, processName: 'node.exe', commandLine: 'node C:\\p\\modculture\\node_modules\\vite\\bin\\vite.js --port 5205' };
+  assert.strictEqual(matchRunning([{ ...site, preferredPort: null }], [siteServer]).get('site')?.port, 5205, `${label}: the site's own server matches by path`);
+  const quoted = { port: 5300, pid: 9, processName: 'node.exe', commandLine: 'npx serve "C:/p/modculture"' };
+  assert.strictEqual(matchRunning([{ ...site, preferredPort: null }], [quoted]).get('site')?.port, 5300, `${label}: a quoted path at the end still matches`);
 }
 
 console.log('running-match: ok');
