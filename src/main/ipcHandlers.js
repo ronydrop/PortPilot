@@ -8,6 +8,7 @@ const os = require('os');
 const { probe } = require('./healthCheck');
 const { shareInfo } = require('./shareInfo');
 const reserver = require('./portReserver');
+const agentHooks = require('./agentHooks');
 const { recordStart, recordStop, readRuntime, liveSessions, sendToSession, readLogTail } = require('../core/configFile');
 const { createRunner, findClaude } = require('./diagnoseRunner');
 const { makeStartedBy, shortSession } = require('../core/status');
@@ -992,6 +993,36 @@ function setupIpcHandlers(ipcMain, configStore) {
     try {
       configStore.updateDiscovery((discovery) => { Object.assign(discovery, newSettings); });
       return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ============ Agent hooks (Codex, Grok Build) ============
+
+  ipcMain.handle('agentHooks:status', async () => {
+    try {
+      return { success: true, agents: agentHooks.status() };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('agentHooks:install', async (_, id) => {
+    try {
+      agentHooks.install(id);
+      await agentHooks.serve();
+      return { success: true, agents: agentHooks.status() };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('agentHooks:uninstall', async (_, id) => {
+    try {
+      agentHooks.uninstall(id);
+      await agentHooks.serve();
+      return { success: true, agents: agentHooks.status() };
     } catch (error) {
       return { success: false, error: error.message };
     }

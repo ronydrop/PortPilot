@@ -6,9 +6,9 @@ description: Start, stop and check local dev servers through PortPilot instead o
 # PortPilot
 
 PortPilot keeps a registry of the user's local apps and the ports they run on. The
-desktop app, the VS Code extension and this plugin's MCP server all read the same
-registry, so an app started here shows up in the user's PortPilot window, tagged as
-started by Claude.
+desktop app, the VS Code extension and PortPilot's MCP server all read the same
+registry, so an app started here shows up in the user's PortPilot window, tagged with
+the agent that started it.
 
 ## Never start a dev server with bare Bash
 

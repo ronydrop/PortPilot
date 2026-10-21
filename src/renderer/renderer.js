@@ -210,6 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadTheme();
   await loadSettings();
   initWebAgentUI();
+  initAgentHooksUI();
   checkDockerStatus();
   await loadApps();
 
@@ -2811,6 +2812,48 @@ async function toggleWebAgent(e) {
     await window.portpilot.agent.stop();
     updateWebAgentUI(null);
     showToast(t('Web access disabled'), 'info');
+  }
+}
+
+// ============ Agent hooks (Codex, Grok Build) ============
+async function initAgentHooksUI() {
+  if (!window.portpilot.agentHooks) {
+    document.getElementById('agent-hooks').classList.add('hidden');
+    return;
+  }
+  const result = await window.portpilot.agentHooks.status();
+  if (result.success) renderAgentHooks(result.agents);
+}
+
+function renderAgentHooks(agents) {
+  document.getElementById('agent-hooks').replaceChildren(...agents.map((a) => {
+    const row = document.createElement('div');
+    row.className = 'setting-row';
+    const label = document.createElement('span');
+    const state = a.error ? t('Failed: {error}', { error: t(a.error) })
+      : a.installed ? t(a.current ? 'Installed' : 'Installed, out of date')
+      : t(a.available ? 'Not installed' : 'Not found on this computer');
+    label.textContent = `${a.name} · ${state}`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-secondary btn-small';
+    btn.textContent = t(a.installed ? 'Remove' : 'Install');
+    btn.disabled = !a.installed && (!a.available || a.missingNode);
+    if (!a.installed && a.missingNode) btn.title = t('Node.js was not found on PATH; the hook needs it to run');
+    btn.addEventListener('click', () => toggleAgentHook(a));
+    row.append(label, btn);
+    return row;
+  }));
+}
+
+async function toggleAgentHook(a) {
+  const api = window.portpilot.agentHooks;
+  const result = a.installed ? await api.uninstall(a.id) : await api.install(a.id);
+  if (result.success) {
+    renderAgentHooks(result.agents);
+    showToast(t(a.installed ? '{name}: hook removed' : '{name}: hook installed', { name: a.name }), 'success');
+  } else {
+    showToast(t('Failed: {error}', { error: t(result.error) }), 'error');
   }
 }
 

@@ -150,7 +150,8 @@ function shellWords(s) {
   return out.map((w) => ({ ...w, raw: s.slice(w.start, w.end) }));
 }
 
-const REDIRECT = /^\d?(?:&>>?|>>?&?|<)/;
+// `2>`, `&>`, `>&`, `<`, and PowerShell's `*>` (every stream).
+const REDIRECT = /^(?:\d|\*)?(?:&>>?|>>?&?|<)/;
 
 /**
  * Where a trailing run of redirections, `| tee ...` and `&` starts in s, or -1.
@@ -1062,7 +1063,7 @@ function createServer() {
       description: z.string().optional().describe('Short description'),
       env: z.record(z.string()).optional().describe('Environment variables for the command (e.g. {"PORT":"4000"})'),
       registeredBy: z.enum(['observed']).optional().describe('"observed" when registering a server you started after PortPilot noted its new port; leave unset otherwise'),
-      observedSession: z.string().optional().describe('The Claude Code session the observed start came from (the PortPilot plugin fills this in)')
+      observedSession: z.string().optional().describe('The agent session the observed start came from (the Claude Code plugin fills this in; for other agents PortPilot names it in its note)')
     },
     async ({ name, command, cwd, preferredPort, isFavorite, autoStart, group, description, env, registeredBy, observedSession }) => {
       // An observed command came from bash: save it in the form cmd.exe runs.

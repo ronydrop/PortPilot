@@ -214,6 +214,10 @@ if (!gotTheLock) {
     ipcMain.on('i18n:getLanguage', (e) => { e.returnValue = applyLanguage(); });
     createTray();
     setupIpcHandlers(ipcMain, configStore);
+    // Installed Codex/Grok hooks follow this app's path and node and its current skill; Grok's POST to this app.
+    const agentHooks = require('./agentHooks');
+    try { agentHooks.sync(); } catch (err) { console.error('Agent hook sync failed:', err); }
+    agentHooks.serve().catch((err) => console.error('Agent hook server failed:', err));
 
     // Notify (OS notification + in-app toast) when a running app crashes.
     const { onAppCrash, getRunningApps } = require('./processManager');

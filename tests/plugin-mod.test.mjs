@@ -146,6 +146,24 @@ t('parseStart: non-server commands return null', () => {
   assert.equal(parseStart(''), null);
 });
 
+t('parseStart: PowerShell (Codex and Grok on Windows): Set-Location, $env:PORT, .cmd shims', () => {
+  assert.deepStrictEqual(cdPort(String.raw`Set-Location C:\Users\me\app; npm run dev`), { cd: String.raw`C:\Users\me\app`, port: null });
+  assert.deepStrictEqual(cdPort(String.raw`Set-Location -LiteralPath "C:\My Apps\web"; npm.cmd run dev`), { cd: String.raw`C:\My Apps\web`, port: null });
+  assert.deepStrictEqual(cdPort('Push-Location web; pnpm.exe dev'), { cd: 'web', port: null });
+  assert.deepStrictEqual(cdPort('$env:PORT = 3001; npm run dev'), { cd: null, port: 3001 });
+  assert.deepStrictEqual(cdPort('$env:PORT="4000"; npx vite --port 4000'), { cd: null, port: 4000 });
+  assert.equal(parseStart("$ErrorActionPreference = 'Stop'; npm run dev").certain, true);
+  assert.equal(parseStart('npm.cmd run dev').raw, 'npm.cmd run dev');
+});
+
+t('parseStart: PowerShell steps it cannot follow make the start uncertain', () => {
+  assert.equal(parseStart('$env:PORT=$p; npm run dev').certain, false);
+  assert.equal(parseStart('$x = Get-Thing; npm run dev').certain, false);
+  assert.equal(parseStart(String.raw`Set-Location $env:USERPROFILE\app; npm run dev`).certain, false);
+  assert.equal(parseStart('Set-Location -; npm run dev').certain, false);
+  assert.equal(parseStart('Start-Process npm -ArgumentList "run","dev"'), null);
+});
+
 // The whole guard, composed the way register.tsx composes it.
 function guard(command, { cwd = 'I:/Scratch/app/web', runtime = {}, listeners = listen(), cfg = config } = {}) {
   const start = parseStart(command);
@@ -400,6 +418,15 @@ t('review 5 (M3): the notice suggests a cmd-safe command, with leading assignmen
   assert.deepStrictEqual(cmdSafe('npm run dev -- --port 3005 >> dev.log 2>&1'), { command: 'npm run dev -- --port 3005', env: {} });
   assert.deepStrictEqual(cmdSafe('npx vite --port 3005 &> out.log'), { command: 'npx vite --port 3005', env: {} });
   assert.deepStrictEqual(cmdSafe('npm run dev -- --port 3000>x.log'), { command: 'npm run dev -- --port 3000', env: {} });
+  assert.deepStrictEqual(cmdSafe('npm run dev *> dev.log'), { command: 'npm run dev', env: {} });
+});
+
+t('observe: a notice for an agent without a stamping hook names its session', () => {
+  const s = noteStart(EMPTY, { start: parseStart('npm run dev'), sessionCwd: UNREG, config, listeners: listen(), home: HOME, windows: true, now: T0 });
+  const [n] = checkNotices(s, { config, runtime: null, listeners: ports(5173) }, T0 + 5_000, 'codex:019a').notices;
+  assert.ok(n.endsWith('registeredBy "observed", observedSession "codex:019a".'), n);
+  const [plain] = checkNotices(s, { config, runtime: null, listeners: ports(5173) }, T0 + 5_000).notices;
+  assert.ok(plain.endsWith('registeredBy "observed".'), plain);
 });
 
 t('review 5 (H1): a deny for an observed app names the holder and how to fix a wrong registration', () => {

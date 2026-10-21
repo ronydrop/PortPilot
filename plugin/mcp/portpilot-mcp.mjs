@@ -23831,7 +23831,7 @@ function shellWords(s) {
   close(s.length);
   return out.map((w) => ({ ...w, raw: s.slice(w.start, w.end) }));
 }
-var REDIRECT = /^\d?(?:&>>?|>>?&?|<)/;
+var REDIRECT = /^(?:\d|\*)?(?:&>>?|>>?&?|<)/;
 function trailingShellOnly(words) {
   const calm = new Array(words.length + 1).fill(true);
   for (let j = words.length - 1; j >= 0; j--) calm[j] = calm[j + 1] && !words[j].ctl;
@@ -24551,7 +24551,7 @@ function createServer2() {
       description: external_exports.string().optional().describe("Short description"),
       env: external_exports.record(external_exports.string()).optional().describe('Environment variables for the command (e.g. {"PORT":"4000"})'),
       registeredBy: external_exports.enum(["observed"]).optional().describe('"observed" when registering a server you started after PortPilot noted its new port; leave unset otherwise'),
-      observedSession: external_exports.string().optional().describe("The Claude Code session the observed start came from (the PortPilot plugin fills this in)")
+      observedSession: external_exports.string().optional().describe("The agent session the observed start came from (the Claude Code plugin fills this in; for other agents PortPilot names it in its note)")
     },
     async ({ name, command, cwd, preferredPort, isFavorite, autoStart, group, description, env, registeredBy, observedSession }) => {
       if (registeredBy === "observed") {

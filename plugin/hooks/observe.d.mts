@@ -18,6 +18,6 @@ export function noteStart(
 ): ObserveState;
 export function cmdSafe(raw: string): { command: string; env: Record<string, string> };
 export function freshPorts(state: ObserveState, snap: Snap): number[];
-export function noticeText(newPorts: number[], notes: Note[], listeners?: Listeners): string;
-export function checkNotices(state: ObserveState, snap: Snap, now: number): { state: ObserveState; notices: string[] };
+export function noticeText(newPorts: number[], notes: Note[], listeners?: Listeners, session?: string): string;
+export function checkNotices(state: ObserveState, snap: Snap, now: number, session?: string): { state: ObserveState; notices: string[] };
 export function takeQueued(state: ObserveState, config: Config | null, now: number): { state: ObserveState; notices: string[] };

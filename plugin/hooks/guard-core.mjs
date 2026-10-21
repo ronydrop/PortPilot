@@ -170,6 +170,10 @@ const PORT_UNREAD = /(?:^|\s)(?:--port[=\s]+|-p\s+)(?!\d{2,5}\b)\S/;
 
 const OPERATORS = ['&&', '||', ';', '|', '&', '\n'];
 
+// A step that only changes directory: bash `cd`/`pushd`, PowerShell `Set-Location`/`Push-Location`
+// with an optional `-Path`/`-LiteralPath`. The target is literal (no variable, glob or `-`).
+const CD_STEP = /^(?:cd|pushd|[Ss]et-[Ll]ocation|[Pp]ush-[Ll]ocation)\s+(?:-(?:[Ll]iteral)?[Pp]ath\s+)?((['"]).*\2|[^\s'"$*?~`-][^\s'"$*?`]*|~[^\s'"$*?`]*)$/;
+
 function unquote(s) {
   return s.replace(/^(['"])(.*)\1$/, '$2');
 }
@@ -239,6 +243,8 @@ export function devStart(text) {
     else portKnown = false;
     body = m[3];
   }
+  // Windows shells name the shims npm.cmd, pnpm.exe (PowerShell may refuse npm.ps1).
+  body = body.replace(/^(npm|npx|pnpm|yarn|bun|bunx)\.(?:cmd|exe|ps1)(?=\s|$)/i, '$1');
   if (!DEV_START.some((re) => re.test(body))) return null;
   // `npm run dev -- --port 3001` forwards the flag; npm keeps one before `--`
   // for itself (`npm run dev --port 3005` sets npm_config_port and the
@@ -257,7 +263,7 @@ export function devStart(text) {
   }
   if (PORT_UNREAD.test(body)) portKnown = false;
   // Redirects do not change what starts (parseStart marks the step not bare).
-  let script = body.replace(/\s*(?:\d*>>?|&>>?|<)\s*(?:&\d+|\S+)/g, '');
+  let script = body.replace(/\s*(?:(?:\d*|\*)>>?|&>>?|<)\s*(?:&\d+|\S+)/g, '');
   for (const [re, to] of PORT_STRIP) script = script.replace(re, to);
   script = script.replace(/\s+--\s*$/, '').replace(/\s+/g, ' ').trim()
     .replace(/^(npm|pnpm|yarn|bun) run /, '$1 ');
@@ -265,10 +271,12 @@ export function devStart(text) {
 }
 
 /**
- * Parse a Bash command for a dev-server start.
+ * Parse a shell command for a dev-server start: bash, or PowerShell (Codex and
+ * Grok on Windows), whose `Set-Location X;` and `$env:PORT = 3001;` steps read
+ * as `cd X &&` and `export PORT=3001 &&`.
  * @returns {null | {cd: string|null, port: number|null, script: string, raw: string, certain: boolean, bare: boolean}}
  *   cd       the directory a leading `cd X &&` chain moves to (as written), or null
- *   port     an explicit port (`--port`, `-p`, `PORT=`, `export PORT=`), or null
+ *   port     an explicit port (`--port`, `-p`, `PORT=`, `export PORT=`, `$env:PORT=`), or null
  *   script   the start, normalised for comparing with an app's command
  *   raw      the start step as written (runnable, unlike script)
  *   certain  the directory and the port can be read from the command: no
@@ -296,10 +304,24 @@ export function parseStart(command) {
     // A step before the start: it must run first and must not move the
     // directory in a way the command does not show.
     if (!['&&', ';', '\n'].includes(step.op) || step.redirect) certain = false;
-    const cdm = step.text.match(/^(?:cd|pushd)\s+((['"]).*\2|[^\s'"$*?~`-][^\s'"$*?`]*|~[^\s'"$*?`]*)$/);
+    const cdm = step.text.match(CD_STEP);
     if (cdm) {
       const to = unquote(cdm[1]);
       cd = cd && !isAbsolute(to) ? `${cd}/${to}` : to;
+      continue;
+    }
+    const psEnv = step.text.match(/^\$env:([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/i);
+    if (psEnv) {
+      bare = false;
+      if (psEnv[1].toUpperCase() === 'PORT') {
+        const v = unquote(psEnv[2].trim());
+        if (/^\d{2,5}$/.test(v)) port = Number(v); else certain = false;
+      }
+      continue;
+    }
+    // `$ErrorActionPreference = 'Stop'`: a PowerShell variable set to a literal moves nothing.
+    if (/^\$[A-Za-z_][A-Za-z0-9_]*\s*=\s*(?:'[^']*'|"[^"$`]*"|\d+|\$true|\$false)$/i.test(step.text)) {
+      bare = false;
       continue;
     }
     const exp = step.text.match(/^export\s+(.+)$/);

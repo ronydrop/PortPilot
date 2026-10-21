@@ -121,6 +121,13 @@ contextBridge.exposeInMainWorld('portpilot', {
     detectProject: (dirPath) => ipcRenderer.invoke('discovery:detectProject', dirPath)
   },
 
+  // PortPilot's hook and skill in Codex and Grok Build
+  agentHooks: {
+    status: () => ipcRenderer.invoke('agentHooks:status'),
+    install: (id) => ipcRenderer.invoke('agentHooks:install', id),
+    uninstall: (id) => ipcRenderer.invoke('agentHooks:uninstall', id)
+  },
+
   // Event listeners
   on: (channel, callback) => {
     const validChannels = ['trigger-scan', 'config-changed', 'toast', 'crash-toast', 'history-progress'];

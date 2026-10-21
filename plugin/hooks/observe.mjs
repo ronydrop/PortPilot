@@ -157,7 +157,8 @@ function shellWords(s) {
   return out.map((w) => ({ ...w, raw: s.slice(w.start, w.end) }));
 }
 
-const REDIRECT = /^\d?(?:&>>?|>>?&?|<)/;
+// `2>`, `&>`, `>&`, `<`, and PowerShell's `*>` (every stream).
+const REDIRECT = /^(?:\d|\*)?(?:&>>?|>>?&?|<)/;
 
 /**
  * Where a trailing run of redirections, `| tee ...` and `&` starts in s, or -1.
@@ -241,8 +242,10 @@ function mainPort(list) {
  * The text Claude reads for the new ports of one check, one line per process.
  * @param {number[]} newPorts  sorted
  * @param {Map} listeners      holders, names already resolved where possible
+ * @param {string} [session]   the agent session to name as observedSession, for agents
+ *                             whose hooks cannot stamp the add_app call (the Claude mod does)
  */
-export function noticeText(newPorts, notes, listeners = new Map()) {
+export function noticeText(newPorts, notes, listeners = new Map(), session = '') {
   const after = notes.map((n) => `\`${n.command}\` in ${baseName(n.cwd) || n.cwd}`).join(', or ');
   const groups = new Map();
   for (const p of newPorts) {
@@ -270,21 +273,22 @@ export function noticeText(newPorts, notes, listeners = new Map()) {
     `PortPilot: ${listed} started listening after ${after}.`,
     ...lines.map((l) => l.text),
     'Register only a port you are confident your own start opened. A port held by a process you did not start is not yours: ignore it.',
-    `To register it, call PortPilot's add_app tool with ${how}, ${port}, registeredBy "observed".`,
+    `To register it, call PortPilot's add_app tool with ${how}, ${port}, registeredBy "observed"${session ? `, observedSession "${session}"` : ''}.`,
   ].join('\n');
 }
 
 /**
  * One check: which new ports to tell Claude about, as at most one notice.
  * @param {object} snap  { config, runtime, listeners }  listeners null when the scan failed
+ * @param {string} [session]  see noticeText
  * @returns {{ state: object, notices: string[] }}
  */
-export function checkNotices(state, { config, runtime = null, listeners }, now) {
+export function checkNotices(state, { config, runtime = null, listeners }, now, session = '') {
   if (off(config)) return { state: { ...state, notes: [], queue: [] }, notices: [] };
   const notes = state.notes.filter((n) => now - n.at <= NOTICE_MS);
   if (!listeners) return { state: { ...state, notes }, notices: [] };
   const fresh = freshPorts({ ...state, notes }, { config, runtime, listeners });
-  const notices = fresh.length ? [noticeText(fresh, notes, listeners)] : [];
+  const notices = fresh.length ? [noticeText(fresh, notes, listeners, session)] : [];
   const noticed = [...state.noticed, ...fresh].slice(-MAX_NOTICED);
   return { state: { ...state, notes, lastPorts: [...listeners.keys()], noticed }, notices };
 }
